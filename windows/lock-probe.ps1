@@ -45,11 +45,34 @@ Write-Host '=============================================='
 # ---------------------------------------------------------------------------------
 # Eksperimen A: timpa file yang sedang dilayani IIS
 # ---------------------------------------------------------------------------------
+# Write-Host ''
+# Write-Host '--- A: timpa index.html yang sedang dilayani IIS ---'
+
+# $activePath = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath).Value
+# $target     = Join-Path $activePath 'index.html'
+
+# --- A: timpa index.html yang sedang dilayani IIS ---
 Write-Host ''
 Write-Host '--- A: timpa index.html yang sedang dilayani IIS ---'
 
-$activePath = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath).Value
-$target     = Join-Path $activePath 'index.html'
+$activePath = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath -ErrorAction SilentlyContinue).Value
+
+# Fallback: jika physicalPath IIS kosong atau tidak valid, ambil rilis terakhir di disk
+if (-not $activePath -or -not (Test-Path $activePath)) {
+    $releasesDir = Join-Path $Root 'releases'
+    $latestRelease = Get-ChildItem -Path $releasesDir -Directory -ErrorAction SilentlyContinue |
+                     Where-Object { $_.Name -match '^\d+$' } |
+                     Sort-Object { [int]$_.Name } |
+                     Select-Object -Last 1
+    
+    if ($latestRelease) {
+        $activePath = $latestRelease.FullName
+    } else {
+        $activePath = $Root
+    }
+}
+
+$target = Join-Path $activePath 'index.html'
 
 # Minta satu request dulu, supaya file benar-benar sudah pernah dibuka IIS dan bukan
 # file yang belum tersentuh. Tanpa langkah ini eksperimennya tidak menguji apa pun.
