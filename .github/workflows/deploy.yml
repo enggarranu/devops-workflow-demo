@@ -262,6 +262,7 @@ jobs:
           $lines += 'Rilis di disk:'
           $lines += ''
           $lines += '```'
-          $lines += (Get-ChildItem -Path C:\inetpub\demo -ErrorAction SilentlyContinue \vert{} Out-String).Trim()$lines += '```'
+          $lines += (Get-ChildItem -Path C:\inetpub\demo -ErrorAction SilentlyContinue | Out-String).Trim()
+          $lines += '```'
 
           $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
