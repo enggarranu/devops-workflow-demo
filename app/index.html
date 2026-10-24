@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Token __BUILD_ID__ diganti oleh linux/deploy.sh dan windows/deploy.ps1 saat
+       rilis dibuat. Token inilah yang membuat rollback bisa dibuktikan: smoke test
+       mengassert string versi yang spesifik, bukan sekadar "server membalas 200". -->
+  <meta name="build-id" content="__BUILD_ID__">
+  <title>devops-workflow-demo</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+      max-width: 42rem; margin: 4rem auto; padding: 0 1.5rem;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+    .build { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 1.125rem; }
+    .muted { opacity: .7; font-size: .875rem; }
+  </style>
+</head>
+<body>
+  <h1>devops-workflow-demo</h1>
+  <p class="muted">Aplikasi static yang dideploy ke nginx dan IIS lewat satu pipeline CI.</p>
+  <p>build: <strong class="build">__BUILD_ID__</strong></p>
+  <p class="muted">
+    Deployment terjadi sepenuhnya di dalam GitHub runner. Tidak ada server di luar CI.
+  </p>
+</body>
+</html>

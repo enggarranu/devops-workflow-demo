@@ -1,0 +1,267 @@
+# Satu workflow, dua job paralel, tujuh stage yang sama di dua sistem operasi.
+#
+# Tujuannya bukan sekadar hijau. Tiap job mendeploy dua rilis berbeda, membuktikan
+# rilis kedua benar-benar dilayani, lalu melakukan rollback dan membuktikan rilis
+# pertama kembali dilayani. Rollback yang tidak bekerja akan memerahkan job, bukan
+# lolos diam-diam.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Hanya satu deploy per ref yang jalan. Run yang lebih lama dibatalkan, supaya dua run
+# tidak berebut mengubah pointer rilis di runner-nya masing-masing dan menghasilkan
+# log yang membingungkan saat ditunjukkan.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+# Job ini tidak menulis apa pun ke repo, jadi token-nya dibatasi hanya baca.
+permissions:
+  contents: read
+
+env:
+  SITE_NAME: demo
+  # Port 8080, bukan 80, di kedua environment. Di Windows, Default Web Site IIS sudah
+  # memegang port 80 dan sengaja tidak disentuh. Angka ini harus sama dengan `listen`
+  # di linux/nginx-demo.conf.
+  APP_PORT: 8080
+  # Dua build id dalam satu run. Inilah yang menciptakan rilis sebelumnya, supaya
+  # rollback punya tujuan nyata dan bukan cuma dipanggil untuk pamer.
+  BUILD_V1: r${{ github.run_number }}.${{ github.run_attempt }}-v1
+  BUILD_V2: r${{ github.run_number }}.${{ github.run_attempt }}-v2
+
+jobs:
+  # ===================================================================================
+  # LINUX
+  # ===================================================================================
+  linux:
+    name: nginx di ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # --- Stage 1: trigger ---------------------------------------------------------
+      # Stage 1 adalah `on: push` di atas. Job ini dan job windows dipicu oleh event
+      # yang sama, dari definisi yang sama, lalu jalan paralel.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- Stage 2: package ---------------------------------------------------------
+      - name: "Stage 2 — Package (tar)"
+        run: |
+          # -C app . membuat isi folder berada di akar arsip, bukan di dalam app/,
+          # supaya hasil bongkarnya langsung berupa index.html di root rilis.
+          tar -czf app.tar.gz -C app .
+          echo "isi paket:"
+          tar -tzf app.tar.gz
+
+      - name: Unggah paket sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paket-linux
+          path: app.tar.gz
+          retention-days: 7
+
+      # --- Stage 3: siapkan web server ---------------------------------------------
+      - name: "Stage 3 — Pasang nginx"
+        run: |
+          # nginx tidak terpasang di image ubuntu-latest, jadi harus dipasang dulu.
+          # Jauh lebih cepat daripada menyalakan IIS di sisi Windows, sekitar 20 detik.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nginx
+
+          # Default site nginx di port 80 dibiarkan apa adanya. Server block demo masuk
+          # sebagai file terpisah di conf.d, jadi tidak ada yang perlu dimatikan.
+          sudo install -m 644 linux/nginx-demo.conf /etc/nginx/conf.d/demo.conf
+          sudo mkdir -p /var/www/demo/releases
+
+          # nginx -t memvalidasi konfigurasi sebelum dipakai. Tanpa ini, config yang
+          # salah baru terlihat saat restart, dengan nginx sudah mati.
+          sudo nginx -t
+          sudo systemctl restart nginx
+
+          # /healthz membuktikan nginx hidup dan server block-nya aktif, terpisah dari
+          # pertanyaan apakah rilisnya benar. Dicek sekarang supaya kalau smoke test
+          # nanti gagal, penyebabnya sudah pasti bukan "nginx tidak jalan".
+          curl -fsS "http://localhost:${APP_PORT}/healthz"
+
+      # --- Stage 4: deploy rilis pertama -------------------------------------------
+      - name: "Stage 4 — Deploy rilis pertama"
+        run: sudo linux/deploy.sh "$BUILD_V1" app.tar.gz
+
+      # --- Stage 5: smoke test -----------------------------------------------------
+      - name: "Stage 5 — Smoke test rilis pertama"
+        run: linux/smoke-test.sh "http://localhost:${APP_PORT}/" "$BUILD_V1"
+
+      # --- Stage 4b: deploy rilis kedua --------------------------------------------
+      - name: "Stage 4b — Deploy rilis kedua"
+        run: sudo linux/deploy.sh "$BUILD_V2" app.tar.gz
+
+      - name: "Stage 5b — Smoke test rilis kedua"
+        # Argumen ketiga mengassert build pertama sudah TIDAK dilayani. Tanpa itu, test
+        # ini tetap lolos walaupun pointer rilisnya tidak pernah berpindah.
+        run: linux/smoke-test.sh "http://localhost:${APP_PORT}/" "$BUILD_V2" "$BUILD_V1"
+
+      # --- Stage 6: rollback -------------------------------------------------------
+      - name: "Stage 6 — Rollback"
+        run: sudo linux/rollback.sh
+
+      - name: "Stage 5c — Smoke test setelah rollback"
+        # Inilah step yang membuktikan rollback benar-benar bekerja, bukan sekadar ada.
+        run: linux/smoke-test.sh "http://localhost:${APP_PORT}/" "$BUILD_V1" "$BUILD_V2"
+
+      # --- Stage 7: lock probe -----------------------------------------------------
+      - name: "Stage 7 — Lock probe"
+        # Path step summary dikirim sebagai argumen, karena sudo mereset environment
+        # dan script ini harus jalan sebagai root untuk menulis ke folder rilis.
+        run: sudo linux/lock-probe.sh "$APP_PORT" "$GITHUB_STEP_SUMMARY"
+
+      # --- Ringkasan ---------------------------------------------------------------
+      - name: Ringkasan
+        if: always()
+        run: |
+          {
+            echo "## Linux — nginx di ubuntu-latest"
+            echo
+            echo "| Hal | Nilai |"
+            echo "| --- | --- |"
+            echo "| web server | \`$(nginx -v 2>&1 || echo 'nginx tidak terpasang')\` |"
+            echo "| pointer rilis | symlink \`/var/www/demo/current\` |"
+            echo "| build pertama | \`${BUILD_V1}\` |"
+            echo "| build kedua | \`${BUILD_V2}\` |"
+            echo "| aktif setelah rollback | \`$(sudo readlink -f /var/www/demo/current || echo '?')\` |"
+            echo
+            echo "Rilis di disk:"
+            echo
+            echo '```'
+            sudo ls -la /var/www/demo/ 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ===================================================================================
+  # WINDOWS
+  # ===================================================================================
+  windows:
+    name: IIS di windows-latest
+    runs-on: windows-latest
+    # Lebih longgar daripada job Linux dengan sengaja: menyalakan fitur IIS lewat DISM
+    # memakan satu sampai tiga menit, dan itu langkah paling lambat di seluruh pipeline.
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        # Windows PowerShell 5.1, BUKAN pwsh 7. Di pwsh 7, modul DISM dan
+        # WebAdministration hanya bisa diakses lewat lapisan kompatibilitas Windows
+        # PowerShell, dan drive penyedia `IIS:\` tidak tersedia di sana. Ini satu
+        # keputusan yang menghindari sekelas kegagalan yang membingungkan.
+        shell: powershell
+
+    steps:
+      # --- Stage 1: trigger ---------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- Stage 2: package ---------------------------------------------------------
+      - name: "Stage 2 — Package (Compress-Archive)"
+        run: |
+          # app\* , bukan app , supaya isi folder berada di akar arsip. Ini padanan
+          # dari `tar -C app .` di sisi Linux.
+          Compress-Archive -Path app\* -DestinationPath app.zip -Force
+          Write-Host "isi paket:"
+          Expand-Archive -Path app.zip -DestinationPath $env:RUNNER_TEMP\peek -Force
+          Get-ChildItem -Path $env:RUNNER_TEMP\peek -Recurse -File | Select-Object -ExpandProperty Name
+
+      - name: Unggah paket sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paket-windows
+          path: app.zip
+          retention-days: 7
+
+      # --- Stage 3: siapkan web server ---------------------------------------------
+      - name: "Stage 3 — Nyalakan IIS, buat app pool dan site"
+        run: .\windows\iis-setup.ps1 -SiteName $env:SITE_NAME -Port $env:APP_PORT
+
+      - name: "Stage 3b — Cek IIS hidup"
+        # Setara dengan /healthz di sisi Linux: membuktikan web server-nya jalan
+        # sebelum ada rilis apa pun, supaya kegagalan nanti tidak ambigu.
+        run: |
+          .\windows\smoke-test.ps1 `
+            -Url "http://localhost:$env:APP_PORT/" `
+            -MustContain 'belum ada rilis'
+
+      # --- Stage 4: deploy rilis pertama -------------------------------------------
+      - name: "Stage 4 — Deploy rilis pertama"
+        run: |
+          .\windows\deploy.ps1 `
+            -BuildId $env:BUILD_V1 `
+            -PackagePath app.zip `
+            -SiteName $env:SITE_NAME
+
+      # --- Stage 5: smoke test -----------------------------------------------------
+      - name: "Stage 5 — Smoke test rilis pertama"
+        run: |
+          .\windows\smoke-test.ps1 `
+            -Url "http://localhost:$env:APP_PORT/" `
+            -MustContain $env:BUILD_V1
+
+      # --- Stage 4b: deploy rilis kedua --------------------------------------------
+      - name: "Stage 4b — Deploy rilis kedua"
+        run: |
+          .\windows\deploy.ps1 `
+            -BuildId $env:BUILD_V2 `
+            -PackagePath app.zip `
+            -SiteName $env:SITE_NAME
+
+      - name: "Stage 5b — Smoke test rilis kedua"
+        run: |
+          .\windows\smoke-test.ps1 `
+            -Url "http://localhost:$env:APP_PORT/" `
+            -MustContain $env:BUILD_V2 `
+            -MustNotContain $env:BUILD_V1
+
+      # --- Stage 6: rollback -------------------------------------------------------
+      - name: "Stage 6 — Rollback"
+        run: .\windows\rollback.ps1 -SiteName $env:SITE_NAME
+
+      - name: "Stage 5c — Smoke test setelah rollback"
+        run: |
+          .\windows\smoke-test.ps1 `
+            -Url "http://localhost:$env:APP_PORT/" `
+            -MustContain $env:BUILD_V1 `
+            -MustNotContain $env:BUILD_V2
+
+      # --- Stage 7: lock probe -----------------------------------------------------
+      - name: "Stage 7 — Lock probe"
+        run: .\windows\lock-probe.ps1 -Port $env:APP_PORT -SiteName $env:SITE_NAME
+
+      # --- Ringkasan ---------------------------------------------------------------
+      - name: Ringkasan
+        if: always()
+        run: |
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          $active = try {
+            (Get-ItemProperty "IIS:\Sites\$env:SITE_NAME" -Name physicalPath).Value
+          } catch { '?' }
+
+          $lines = @()
+          $lines += "## Windows — IIS di windows-latest"
+          $lines += ''
+          $lines += '| Hal | Nilai |'
+          $lines += '| --- | --- |'
+          $lines += "| web server | IIS, site ``$env:SITE_NAME`` |"
+          $lines += '| pointer rilis | atribut ``physicalPath`` di applicationHost.config |'
+          $lines += "| build pertama | ``$env:BUILD_V1`` |"
+          $lines += "| build kedua | ``$env:BUILD_V2`` |"
+          $lines += "| aktif setelah rollback | ``$active`` |"
+          $lines += ''
+          $lines += 'Rilis di disk:'
+          $lines += ''
+          $lines += '```'
+          $lines += (Get-ChildItem -Path C:\inetpub\demo -ErrorAction SilentlyContinue | Out-String).Trim()
+          $lines += '```'
+
+          $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
