@@ -80,17 +80,40 @@ if (-not (Select-String -Path $indexPath -Pattern $BuildId -SimpleMatch -Quiet))
 # diberikan di sini, sebelum site diarahkan ke folder ini.
 & icacls.exe $releaseDir /grant 'IIS_IUSRS:(OI)(CI)(RX)' /T /C /Q | Out-Null
 
+# # --- 6. Catat rilis yang sedang aktif sebagai tujuan rollback -------------------
+# # Dicatat SEBELUM swap, selagi physicalPath masih menunjuk rilis lama.
+# $activePath = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath).Value
+
+# if ($activePath -and $activePath.StartsWith($releases, [System.StringComparison]::OrdinalIgnoreCase)) {
+#     Set-Content -Path $previous -Value $activePath -Encoding ASCII
+#     Write-Host "    rollback target dicatat: $activePath"
+# } else {
+#     # Deploy pertama: physicalPath masih menunjuk folder bootstrap, yang bukan rilis dan
+#     # tidak melayani apa-apa. Mencatatnya sebagai tujuan rollback akan menghasilkan
+#     # rollback yang "berhasil" tapi menyajikan halaman kosong, jadi dikosongkan saja.
+#     Set-Content -Path $previous -Value '' -Encoding ASCII
+#     Write-Host '    deploy pertama, belum ada rollback target'
+# }
+
 # --- 6. Catat rilis yang sedang aktif sebagai tujuan rollback -------------------
 # Dicatat SEBELUM swap, selagi physicalPath masih menunjuk rilis lama.
 $activePath = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath).Value
 
-if ($activePath -and $activePath.StartsWith($releases, [System.StringComparison]::OrdinalIgnoreCase)) {
+# Dapatkan rilis aktif terakhir di folder releases (jika ada)
+$lastRelease = Get-ChildItem -Path $releases -Directory -ErrorAction SilentlyContinue |
+               Where-Object { $_.Name -match '^\d+$' -and $_.FullName -ne $releaseDir } |
+               Sort-Object { [int]$_.Name } |
+               Select-Object -Last 1
+
+if ($activePath -and $activePath.StartsWith($releases, [System.StringComparison]::OrdinalIgnoreCase) -and (Test-Path $activePath)) {
     Set-Content -Path $previous -Value $activePath -Encoding ASCII
     Write-Host "    rollback target dicatat: $activePath"
+} elseif ($lastRelease -and (Test-Path $lastRelease.FullName)) {
+    # Jika physicalPath IIS masih menunjuk bootstrap tapi sudah ada rilis sebelumnya di disk
+    Set-Content -Path $previous -Value $lastRelease.FullName -Encoding ASCII
+    Write-Host "    rollback target dicatat dari rilis terakhir: $($lastRelease.FullName)"
 } else {
-    # Deploy pertama: physicalPath masih menunjuk folder bootstrap, yang bukan rilis dan
-    # tidak melayani apa-apa. Mencatatnya sebagai tujuan rollback akan menghasilkan
-    # rollback yang "berhasil" tapi menyajikan halaman kosong, jadi dikosongkan saja.
+    # Deploy pertama murni: belum ada rilis sebelumnya
     Set-Content -Path $previous -Value '' -Encoding ASCII
     Write-Host '    deploy pertama, belum ada rollback target'
 }
