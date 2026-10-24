@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="en" data-env="both" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two Deploy Paths</title>
+<style>
+/* ============================================================================
+   TOKEN
+   Dua aksen, satu hue per environment, dipakai identik di diagram dan tabel.
+   Pembedanya hangat lawan dingin, bukan dua hue berdekatan: itu yang tahan
+   dibaca dari jarak satu meter sekaligus tahan buta warna merah-hijau.
+   Hijau sengaja tidak dipakai sebagai aksen, supaya hijau tetap berarti lolos.
+   ========================================================================= */
+:root {
+  --ink:        #15171A;
+  --ink-2:      #4A5057;
+  --ink-3:      #6E757D;
+  --ground:     #FFFFFF;
+  --surface:    #F6F7F9;
+  --surface-2:  #EDEFF2;
+  --line:       #E3E6EA;
+  --line-2:     #C9CFD6;
+
+  --linux:      #A65D17;
+  --linux-bg:   #FDF4E9;
+  --windows:    #245FA6;
+  --windows-bg: #EDF3FA;
+  --pass:       #1F7A36;
+
+  /* Badge sengaja satu rupa di kedua tema, seperti badge CI di mana pun.
+     Nilainya tidak didefinisikan ulang di blok dark. */
+  --badge-l:    #22262B;
+  --badge-r:    #51585F;
+  --badge-ink:  #FFFFFF;
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --read:  680px;   /* kolom baca untuk prosa */
+  --bleed: 1120px;  /* figure yang menerobos lebih lebar */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink:        #E8EAED;
+    --ink-2:      #A8B0B8;
+    --ink-3:      #868E96;
+    --ground:     #101215;
+    --surface:    #171A1E;
+    --surface-2:  #1F2328;
+    --line:       #2A2F35;
+    --line-2:     #3C434A;
+
+    --linux:      #E0A062;
+    --linux-bg:   #2A1E12;
+    --windows:    #86B4EA;
+    --windows-bg: #13202F;
+    --pass:       #5BC47C;
+  }
+}
+
+/* ============================================================================
+   DWIBAHASA
+   Kedua bahasa ada di markup, dan yang menyembunyikan salah satunya cuma CSS.
+   Artinya isi halaman tidak pernah bergantung pada JavaScript: kalau script-nya
+   gagal, halaman tetap utuh dalam bahasa default, bukan kosong.
+   ========================================================================= */
+html[data-lang="id"] [data-l="en"],
+html[data-lang="en"] [data-l="id"] { display: none; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  /* Ground dicat eksplisit dari token, tidak diwarisi dari host. */
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  /* Lebih besar dari web biasa, karena halaman ini dibaca dari jarak satu meter. */
+  font-size: 20px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================================
+   LAYOUT
+   ========================================================================= */
+.wrap  { width: 100%; max-width: var(--read);  margin-inline: auto; padding-inline: 24px; }
+.bleed { width: 100%; max-width: var(--bleed); margin-inline: auto; padding-inline: 24px; }
+
+section { padding-block: 72px; border-top: 1px solid var(--line); }
+section:first-of-type { border-top: 0; padding-block: 44px 72px; }
+
+.stack      { display: flex; flex-direction: column; gap: 24px; }
+.stack-tight{ display: flex; flex-direction: column; gap: 12px; }
+
+/* ============================================================================
+   TIPOGRAFI
+   Tanpa font eksternal, jadi karakternya datang dari cara monospace dipakai:
+   bukan cuma untuk command, tapi juga nomor stage, label, header tabel, badge.
+   ========================================================================= */
+h1, h2, h3 { margin: 0; text-wrap: balance; letter-spacing: -0.015em; }
+h1 { font-size: 40px; line-height: 1.12; font-weight: 650; }
+h2 { font-size: 34px; line-height: 1.2;  font-weight: 640; }
+h3 { font-size: 22px; line-height: 1.3;  font-weight: 640; }
+p  { margin: 0; }
+
+.lede { font-size: 21px; line-height: 1.45; color: var(--ink-2); }
+.note { font-size: 17px; line-height: 1.55; color: var(--ink-3); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--line-2); }
+
+code, kbd, samp, pre { font-family: var(--mono); }
+p code, li code, td code, th code {
+  font-size: 0.92em;
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   BAGIAN 1 — PEMBUKA
+   Diagram adalah hal paling kuat di halaman ini, jadi dia yang menyambut, bukan
+   paragraf. Headline dan kontrol berbagi satu baris supaya diagram naik
+   setinggi mungkin tanpa mengecil.
+   ========================================================================= */
+.repo-tag { font-family: var(--mono); font-size: 15px; color: var(--ink-3); letter-spacing: 0.02em; }
+
+.hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px 48px;
+  margin-bottom: 36px;
+}
+.hero-text { flex: 1 1 520px; max-width: 600px; display: flex; flex-direction: column; gap: 14px; }
+.hero-ctl  { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+
+.hero-foot {
+  max-width: 62ch;
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Pengantar diagram: lebih tegas dari catatan abu-abu, karena baris inilah yang
+   memberi tahu ke mana harus melihat. */
+.figlead { font-size: 21px; line-height: 1.4; color: var(--ink); font-weight: 560; margin: 0; max-width: 46ch; }
+
+.badge { display: inline-flex; text-decoration: none; border-radius: 5px; }
+.badge:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.badge svg, .badge img { display: block; height: 34px; width: auto; }
+
+/* Tombol dasar dipakai bersama oleh pemilih bahasa dan pemilih environment,
+   supaya dua kontrol ini terbaca sebagai satu keluarga. */
+.btn {
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--ink-2);
+  background: var(--ground);
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  padding: 9px 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Pemilih bahasa mengambang di pojok kanan atas: kecil, dan tetap terjangkau
+   di bagian mana pun halaman tanpa perlu scroll balik ke atas.
+   Warnanya sengaja netral, tidak memakai ochre maupun azure. Dua warna itu
+   sudah punya arti tetap di halaman ini, yaitu dua environment, dan
+   meminjamnya untuk hal lain akan merusak arti itu. */
+.langfloat {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
+  display: inline-flex;
+  border-radius: 6px;
+  /* Latar solid plus cincin tipis, supaya tetap terbaca saat mengambang di
+     atas diagram maupun blok kode. Cincinnya pakai box-shadow, bukan border,
+     supaya tidak menambah lebar dan merusak sudut tombol di dalamnya. */
+  background: var(--ground);
+  box-shadow: 0 0 0 1px var(--line-2), 0 2px 8px rgba(0, 0, 0, .10);
+}
+.langbtn {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 11px;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.langbtn:hover { color: var(--ink); }
+.langbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.langbtn[aria-pressed="true"] { color: var(--ground); background: var(--ink); }
+
+.envbar { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* Penanda bentuk, bukan cuma warna: Linux bulat, Windows kotak. */
+.mark { width: 12px; height: 12px; flex: none; border: 2px solid currentColor; }
+.mark-lin { border-radius: 50%; }
+.mark-win { border-radius: 1px; }
+
+.envbtn-lin { color: var(--linux); }
+.envbtn-win { color: var(--windows); }
+.envbtn[aria-pressed="true"].envbtn-lin { background: var(--linux-bg);   border-color: var(--linux); }
+.envbtn[aria-pressed="true"].envbtn-win { background: var(--windows-bg); border-color: var(--windows); }
+.envbtn[aria-pressed="true"] .mark { background: currentColor; }
+.envbtn[aria-pressed="false"] { color: var(--ink-3); }
+
+/* ============================================================================
+   BAGIAN 2 — DIAGRAM
+   ========================================================================= */
+figure { margin: 0; }
+
+.figbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.replay { font-size: 15px; background: var(--surface); padding: 8px 14px; }
+
+/* Figure yang lebar scroll di dalam containernya sendiri, bukan menggeser body. */
+.scroller { overflow-x: auto; }
+.diagram { display: block; width: 100%; min-width: 620px; height: auto; }
+
+figcaption { font-size: 17px; line-height: 1.55; color: var(--ink-3); margin-top: 18px; max-width: 62ch; }
+
+/* --- teks di dalam SVG --- */
+.d-lane  { font-family: var(--mono); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; }
+.d-num   { font-family: var(--mono); font-size: 26px; font-weight: 600; fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+.d-stage { font-family: var(--mono); font-size: 15px; fill: var(--ink-2); letter-spacing: 0.02em; }
+.d-cmd   { font-family: var(--mono); font-size: 18px; font-weight: 550; }
+.d-sub   { font-family: var(--mono); font-size: 16px; fill: var(--ink-3); }
+.d-edge  { font-family: var(--mono); font-size: 14px; fill: var(--ink-3); }
+
+.d-box      { fill: var(--surface); stroke-width: 1.5; }
+.d-box-lin  { stroke: var(--linux);   }
+.d-box-win  { stroke: var(--windows); }
+.d-box-both { stroke: var(--line-2);  fill: var(--surface-2); }
+
+/* Marker dan badge diwarnai lewat class, bukan lewat atribut presentasi.
+   Safari tidak menerapkan var() di dalam atribut presentasi SVG, jadi
+   fill="var(--linux)" akan diam-diam jadi hitam di sana. */
+.ar-lin  { fill: var(--linux); }
+.ar-win  { fill: var(--windows); }
+.ar-dash { fill: var(--line-2); }
+
+.bdg-l   { fill: var(--badge-l); }
+.bdg-r   { fill: var(--badge-r); }
+.bdg-txt { fill: var(--badge-ink); font-family: var(--mono); font-size: 14px; font-weight: 600; }
+
+/* Stage 7 digambar lain karena perannya lain: bukan langkah deploy,
+   tapi eksperimen yang menguji klaim inti. */
+.d-box-probe { fill: none; stroke-dasharray: 5 4; }
+
+.d-cmd-lin { fill: var(--linux); }
+.d-cmd-win { fill: var(--windows); }
+.d-cmd-both{ fill: var(--ink); }
+
+.d-flow-lin { stroke: var(--linux);   stroke-width: 1.5; fill: none; }
+.d-flow-win { stroke: var(--windows); stroke-width: 1.5; fill: none; }
+.d-flow-dash{ stroke: var(--line-2);  stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+.d-rule     { stroke: var(--line); stroke-width: 1; }
+
+.d-lane-lin { fill: var(--linux); }
+.d-lane-win { fill: var(--windows); }
+
+/* --- animasi: enam stage menyala berurutan, CSS saja --- */
+.stage { opacity: .25; }
+.diagram.lit .stage { opacity: 1; }
+.diagram.play .stage { animation: light .45s ease-out both; }
+.diagram.play .stage[data-i="1"] { animation-delay: .05s; }
+.diagram.play .stage[data-i="2"] { animation-delay: .50s; }
+.diagram.play .stage[data-i="3"] { animation-delay: .95s; }
+.diagram.play .stage[data-i="4"] { animation-delay: 1.40s; }
+.diagram.play .stage[data-i="5"] { animation-delay: 1.85s; }
+.diagram.play .stage[data-i="6"] { animation-delay: 2.30s; }
+.diagram.play .stage[data-i="7"] { animation-delay: 2.95s; }
+@keyframes light { from { opacity: .25; } to { opacity: 1; } }
+
+/* Filter environment: lane yang tidak dipilih meredup. Opacity lane bertumpuk
+   dengan opacity stage, jadi dua mekanisme ini tidak saling berebut. */
+.lane { opacity: 1; transition: opacity .18s; }
+html[data-env="linux"]   .lane-win { opacity: .1; }
+html[data-env="windows"] .lane-lin { opacity: .1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stage, .diagram.play .stage { opacity: 1; animation: none; }
+  .lane, .btn, .langbtn { transition: none; }
+}
+
+/* ============================================================================
+   BAGIAN 3 — ACCORDION
+   ========================================================================= */
+.steps { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--line); }
+details { border-bottom: 1px solid var(--line); }
+
+summary {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 20px 4px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  font-size: 21px;
+}
+summary::-webkit-details-marker { display: none; }
+summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+summary:hover { background: var(--surface); }
+
+.s-num {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-3);
+  flex: none;
+  min-width: 2.4em;
+  font-variant-numeric: tabular-nums;
+}
+.s-title { flex: 1; }
+.s-chev { flex: none; color: var(--ink-3); font-size: 15px; font-family: var(--mono); }
+details[open] .s-chev { color: var(--ink); }
+
+html[data-lang="id"] .s-chev::after              { content: "buka";  }
+html[data-lang="id"] details[open] .s-chev::after { content: "tutup"; }
+html[data-lang="en"] .s-chev::after              { content: "open";  }
+html[data-lang="en"] details[open] .s-chev::after { content: "close"; }
+
+.s-body { padding: 0 4px 28px; display: flex; flex-direction: column; gap: 20px; }
+.s-why { font-size: 18px; line-height: 1.55; color: var(--ink-2); max-width: 70ch; }
+
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+
+.cmd { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.cmd-head {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.cmd-lin  .cmd-head { color: var(--linux);   background: var(--linux-bg); }
+.cmd-win  .cmd-head { color: var(--windows); background: var(--windows-bg); }
+.cmd-both .cmd-head { color: var(--ink-2);   background: var(--surface-2); }
+
+.cmd pre { margin: 0; padding: 14px; overflow-x: auto; font-size: 16px; line-height: 1.65; color: var(--ink); tab-size: 2; }
+.cmd pre .c { color: var(--ink-3); }
+
+html[data-env="linux"]   .cmd-win,
+html[data-env="windows"] .cmd-lin { display: none; }
+
+/* ============================================================================
+   BAGIAN 4 dan 5 — TABEL
+   ========================================================================= */
+table { width: 100%; border-collapse: collapse; font-size: 18px; text-align: left; }
+caption { text-align: left; font-size: 17px; color: var(--ink-3); padding-bottom: 14px; }
+
+th, td { padding: 16px 18px; vertical-align: top; border-bottom: 1px solid var(--line); }
+thead th {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
+}
+thead th.th-lin { color: var(--linux); }
+thead th.th-win { color: var(--windows); }
+tbody th { font-weight: 600; width: 23%; }
+td.cell-lin, td.cell-win { font-family: var(--mono); font-size: 16px; line-height: 1.55; }
+td.cell-lin { background: var(--linux-bg); }
+td.cell-win { background: var(--windows-bg); }
+.cell-cost { font-family: var(--mono); font-size: 15px; color: var(--ink-3); display: block; margin-top: 5px; }
+
+html[data-env="linux"]   .th-win, html[data-env="linux"]   .cell-win,
+html[data-env="windows"] .th-lin, html[data-env="windows"] .cell-lin { display: none; }
+
+/* ============================================================================
+   BAGIAN 6 — REPO
+   ========================================================================= */
+.tree, .run {
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1.7;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 18px;
+  margin: 0;
+  overflow-x: auto;
+}
+.tree .c { color: var(--ink-3); }
+
+.links { display: flex; flex-wrap: wrap; gap: 12px; }
+.link {
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  padding: 10px 16px;
+}
+.link:hover { border-color: var(--ink-3); background: var(--surface); }
+.link:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+footer { padding-block: 48px 72px; border-top: 1px solid var(--line); }
+
+/* ============================================================================
+   SEMPIT
+   ========================================================================= */
+@media (max-width: 760px) {
+  body { font-size: 18px; }
+  /* Di layar sempit kontrol ini paling mungkin menutupi isi saat di-scroll,
+     jadi dikecilkan dan didekatkan ke sudut. */
+  .langfloat { top: 10px; right: 10px; }
+  .langbtn { font-size: 12px; padding: 6px 9px; }
+  h1 { font-size: 34px; }
+  h2 { font-size: 27px; }
+  .lede { font-size: 19px; }
+  section { padding-block: 52px; }
+  section:first-of-type { padding-block: 32px 52px; }
+  .figlead { font-size: 19px; }
+  tbody th { width: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="langfloat" role="group" aria-label="Language / Bahasa">
+  <button type="button" class="langbtn" data-lang="en" aria-pressed="true">EN</button>
+  <button type="button" class="langbtn" data-lang="id" aria-pressed="false">ID</button>
+</div>
+
+<main>
+
+<!-- ==========================================================================
+     BAGIAN 1 — PEMBUKA
+     ======================================================================= -->
+<section id="pembuka">
+  <div class="bleed">
+
+    <!-- Headline dan kontrol berdampingan supaya diagram naik setinggi mungkin.
+         Diagram sendiri tetap selebar penuh: dipersempit jadi kolom samping,
+         teks di dalamnya turun ke ~11px dan gagal syarat terbaca dari satu meter. -->
+    <div class="hero-top">
+      <div class="hero-text">
+        <p class="repo-tag">enggarranu / devops-workflow-demo</p>
+        <h1 data-l="id">Satu pipeline CI, dua sistem operasi, dan rollback yang dibuktikan tiap run.</h1>
+        <h1 data-l="en">One CI pipeline, two operating systems, and a rollback proven on every run.</h1>
+        <p class="lede" data-l="id">
+          Aplikasi web yang sama dideploy ke nginx di Linux dan ke IIS di Windows lewat
+          satu workflow, sampai ke rollback yang dibuktikan ulang tiap run.
+        </p>
+        <p class="lede" data-l="en">
+          The same web app deployed to nginx on Linux and to IIS on Windows through one
+          workflow, down to a rollback that is re-proven on every run.
+        </p>
+      </div>
+
+      <div class="hero-ctl">
+        <a class="badge" id="badge" href="https://github.com/enggarranu/devops-workflow-demo/actions/workflows/deploy.yml">
+                <!-- Badge SVG inline supaya halaman tetap utuh tanpa internet. Kalau
+                     kebetulan online, JS di bawah menukarnya dengan badge asli GitHub. -->
+                <svg width="228" height="34" viewBox="0 0 228 34" role="img" aria-label="Status pipeline deploy">
+                  <clipPath id="bdgclip"><rect width="228" height="34" rx="5"/></clipPath>
+                  <g clip-path="url(#bdgclip)">
+                    <rect class="bdg-l" width="82" height="34"/>
+                    <rect class="bdg-r" x="82" width="146" height="34"/>
+                  </g>
+                  <text class="bdg-txt" x="14" y="22">deploy</text>
+                  <text class="bdg-txt" x="96" y="22" data-l="id">cek di Actions</text>
+                  <text class="bdg-txt" x="96" y="22" data-l="en">see in Actions</text>
+                </svg>
+              </a>
+        <div class="envbar" id="envbar" role="group">
+        <button type="button" class="btn envbtn envbtn-lin" data-env="linux" aria-pressed="true">
+        <span class="mark mark-lin" aria-hidden="true"></span>Linux &middot; nginx
+        </button>
+        <button type="button" class="btn envbtn envbtn-win" data-env="windows" aria-pressed="true">
+        <span class="mark mark-win" aria-hidden="true"></span>Windows &middot; IIS
+        </button>
+        </div>
+      </div>
+    </div>
+
+    <figure style="margin-top:36px">
+          <div class="figbar">
+            <p class="figlead" data-l="id">
+              Enam stage yang sama. Stage 3, 4, dan 6 satu-satunya yang benar-benar berbeda.
+            </p>
+            <p class="figlead" data-l="en">
+              Six identical stages. Only 3, 4, and 6 genuinely differ.
+            </p>
+            <button type="button" class="btn replay" id="replay">
+              <span data-l="id">&#8635; putar ulang</span><span data-l="en">&#8635; replay</span>
+            </button>
+          </div>
+
+          <div class="scroller">
+            <svg class="diagram" id="diagram" viewBox="0 0 1000 786" role="img" aria-label="Six deploy stages run top to bottom across two parallel paths.">
+
+              <defs>
+                <marker id="ar-lin" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+                  <polygon class="ar-lin" points="0,0 8,4 0,8"/>
+                </marker>
+                <marker id="ar-win" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+                  <polygon class="ar-win" points="0,0 8,4 0,8"/>
+                </marker>
+                <marker id="ar-dash" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+                  <polygon class="ar-dash" points="0,0 8,4 0,8"/>
+                </marker>
+              </defs>
+
+              <!-- kepala jalur -->
+              <text class="d-lane d-lane-lin" x="176" y="22">LINUX &middot; nginx</text>
+              <text class="d-sub"             x="176" y="42">ubuntu-latest</text>
+              <text class="d-lane d-lane-win" x="596" y="22">WINDOWS &middot; IIS</text>
+              <text class="d-sub"             x="596" y="42">windows-latest</text>
+              <line class="d-rule" x1="0" y1="54" x2="1000" y2="54"/>
+
+              <!-- STAGE 1 — satu event, dua job. Digambar sebagai satu node yang
+                   memotong kedua jalur, lalu bercabang: pembaca melihat jalurnya
+                   berpisah setelah trigger, bukan cuma diberi tahu. -->
+              <g class="stage" data-i="1">
+                <text class="d-num"   x="0" y="98">01</text>
+                <text class="d-stage" x="0" y="118">trigger</text>
+                <rect class="d-box d-box-both" rx="5" x="176" y="70" width="824" height="62"/>
+                <text class="d-cmd d-cmd-both" x="196" y="97">on: push &rarr; branches: [main]</text>
+                <text class="d-sub" x="196" y="119" data-l="id">satu event, dua job paralel</text>
+                <text class="d-sub" x="196" y="119" data-l="en">one event, two parallel jobs</text>
+                <path class="d-flow-lin" d="M 378 132 L 378 160" marker-end="url(#ar-lin)"/>
+                <path class="d-flow-win" d="M 798 132 L 798 160" marker-end="url(#ar-win)"/>
+              </g>
+
+              <!-- STAGE 2 — package -->
+              <g class="stage" data-i="2">
+                <text class="d-num"   x="0" y="200">02</text>
+                <text class="d-stage" x="0" y="220">package</text>
+                <g class="lane lane-lin">
+                  <rect class="d-box d-box-lin" rx="10" x="176" y="168" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-lin" x="196" y="196">tar -czf</text>
+                  <text class="d-sub"           x="196" y="220">app.tar.gz</text>
+                  <path class="d-flow-lin" d="M 378 238 L 378 266" marker-end="url(#ar-lin)"/>
+                </g>
+                <g class="lane lane-win">
+                  <rect class="d-box d-box-win" rx="1" x="596" y="168" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-win" x="616" y="196">Compress-Archive</text>
+                  <text class="d-sub"           x="616" y="220">app.zip</text>
+                  <path class="d-flow-win" d="M 798 238 L 798 266" marker-end="url(#ar-win)"/>
+                </g>
+              </g>
+
+              <!-- STAGE 3 — beda pertama: biaya menyiapkan web server -->
+              <g class="stage" data-i="3">
+                <text class="d-num"   x="0" y="306">03</text>
+                <text class="d-stage" x="0" y="326">web server</text>
+                <g class="lane lane-lin">
+                  <rect class="d-box d-box-lin" rx="10" x="176" y="274" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-lin" x="196" y="302">apt-get install nginx</text>
+                  <text class="d-sub" x="196" y="326" data-l="id">sudah terpasang dalam ~20 detik</text>
+                  <text class="d-sub" x="196" y="326" data-l="en">installed in about 20 seconds</text>
+                  <path class="d-flow-lin" d="M 378 344 L 378 372" marker-end="url(#ar-lin)"/>
+                </g>
+                <g class="lane lane-win">
+                  <rect class="d-box d-box-win" rx="1" x="596" y="274" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-win" x="616" y="302" data-l="id">DISM: nyalakan fitur IIS</text>
+                  <text class="d-cmd d-cmd-win" x="616" y="302" data-l="en">DISM: enable IIS features</text>
+                  <text class="d-sub" x="616" y="326" data-l="id">tidak ada di image, 1&ndash;3 menit</text>
+                  <text class="d-sub" x="616" y="326" data-l="en">not in the image, 1&ndash;3 minutes</text>
+                  <path class="d-flow-win" d="M 798 344 L 798 372" marker-end="url(#ar-win)"/>
+                </g>
+              </g>
+
+              <!-- STAGE 4 — inti demo. Node ini tidak menulis "Deploy", tapi
+                   menggambar pointer-nya, karena di situlah mekanismenya. -->
+              <g class="stage" data-i="4">
+                <text class="d-num"   x="0" y="418">04</text>
+                <text class="d-stage" x="0" y="438">deploy</text>
+                <g class="lane lane-lin">
+                  <rect class="d-box d-box-lin" rx="10" x="176" y="380" width="404" height="96"/>
+                  <text class="d-sub" x="196" y="406" data-l="id">rilis baru, lalu tukar pointer</text>
+                  <text class="d-sub" x="196" y="406" data-l="en">new release, then swap the pointer</text>
+                  <text class="d-cmd d-cmd-lin" x="196" y="434">current</text>
+                  <path class="d-flow-lin" d="M 290 428 L 330 428" marker-end="url(#ar-lin)"/>
+                  <text class="d-cmd d-cmd-lin" x="340" y="434">releases/0002</text>
+                  <text class="d-sub" x="196" y="460" data-l="id">symlink, satu rename atomic</text>
+                  <text class="d-sub" x="196" y="460" data-l="en">symlink, one atomic rename</text>
+                  <path class="d-flow-lin" d="M 378 476 L 378 504" marker-end="url(#ar-lin)"/>
+                  <text class="d-edge" x="390" y="496">assert build id</text>
+                </g>
+                <g class="lane lane-win">
+                  <rect class="d-box d-box-win" rx="1" x="596" y="380" width="404" height="96"/>
+                  <text class="d-sub" x="616" y="406" data-l="id">rilis baru, lalu tukar pointer</text>
+                  <text class="d-sub" x="616" y="406" data-l="en">new release, then swap the pointer</text>
+                  <text class="d-cmd d-cmd-win" x="616" y="434">physicalPath</text>
+                  <path class="d-flow-win" d="M 762 428 L 802 428" marker-end="url(#ar-win)"/>
+                  <text class="d-cmd d-cmd-win" x="812" y="434">releases\0002</text>
+                  <text class="d-sub" x="616" y="460" data-l="id">atribut site, + recycle app pool</text>
+                  <text class="d-sub" x="616" y="460" data-l="en">site attribute, + recycle app pool</text>
+                  <path class="d-flow-win" d="M 798 476 L 798 504" marker-end="url(#ar-win)"/>
+                </g>
+              </g>
+
+              <!-- STAGE 5 — smoke test -->
+              <g class="stage" data-i="5">
+                <text class="d-num"   x="0" y="544">05</text>
+                <text class="d-stage" x="0" y="564">smoke test</text>
+                <g class="lane lane-lin">
+                  <rect class="d-box d-box-lin" rx="10" x="176" y="512" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-lin" x="196" y="540">curl -f &rarr; grep -qF</text>
+                  <text class="d-sub" x="196" y="564" data-l="id">build id baru ada, yang lama hilang</text>
+                  <text class="d-sub" x="196" y="564" data-l="en">new build id present, old one gone</text>
+                  <path class="d-flow-lin" d="M 378 582 L 378 610" marker-end="url(#ar-lin)"/>
+                </g>
+                <g class="lane lane-win">
+                  <rect class="d-box d-box-win" rx="1" x="596" y="512" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-win" x="616" y="540">Invoke-WebRequest</text>
+                  <text class="d-sub" x="616" y="564" data-l="id">-UseBasicParsing, lalu .Contains()</text>
+                  <text class="d-sub" x="616" y="564" data-l="en">-UseBasicParsing, then .Contains()</text>
+                  <path class="d-flow-win" d="M 798 582 L 798 610" marker-end="url(#ar-win)"/>
+                </g>
+              </g>
+
+              <!-- STAGE 6 — rollback: pointer yang sama, arah sebaliknya -->
+              <g class="stage" data-i="6">
+                <text class="d-num"   x="0" y="650">06</text>
+                <text class="d-stage" x="0" y="670">rollback</text>
+                <g class="lane lane-lin">
+                  <rect class="d-box d-box-lin" rx="10" x="176" y="618" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-lin" x="196" y="646">current</text>
+                  <path class="d-flow-lin" d="M 290 640 L 330 640" marker-end="url(#ar-lin)"/>
+                  <text class="d-cmd d-cmd-lin" x="340" y="646">releases/0001</text>
+                  <text class="d-sub" x="196" y="670" data-l="id">1 operasi, baca dari previous</text>
+                  <text class="d-sub" x="196" y="670" data-l="en">1 operation, read from previous</text>
+                </g>
+                <g class="lane lane-win">
+                  <rect class="d-box d-box-win" rx="1" x="596" y="618" width="404" height="70"/>
+                  <text class="d-cmd d-cmd-win" x="616" y="646">physicalPath</text>
+                  <path class="d-flow-win" d="M 762 640 L 802 640" marker-end="url(#ar-win)"/>
+                  <text class="d-cmd d-cmd-win" x="812" y="646">releases\0001</text>
+                  <text class="d-sub" x="616" y="670" data-l="id">2 operasi, + Restart-WebAppPool</text>
+                  <text class="d-sub" x="616" y="670" data-l="en">2 operations, + Restart-WebAppPool</text>
+                </g>
+                <path class="d-flow-dash" d="M 378 688 L 378 712" marker-end="url(#ar-dash)"/>
+                <path class="d-flow-dash" d="M 798 688 L 798 712" marker-end="url(#ar-dash)"/>
+              </g>
+
+              <!-- STAGE 7 — apendiks. Dashed dan netral karena bukan langkah deploy
+                   melainkan eksperimen yang menguji klaim inti demo. -->
+              <g class="stage" data-i="7">
+                <text class="d-num"   x="0" y="752">07</text>
+                <text class="d-stage" x="0" y="772">lock probe</text>
+                <g class="lane lane-lin">
+                  <rect class="d-box d-box-lin d-box-probe" rx="10" x="176" y="720" width="404" height="48"/>
+                  <text class="d-cmd d-cmd-lin" x="196" y="750" data-l="id">rm file terbuka &rarr; diizinkan</text>
+                  <text class="d-cmd d-cmd-lin" x="196" y="750" data-l="en">rm an open file &rarr; allowed</text>
+                </g>
+                <g class="lane lane-win">
+                  <rect class="d-box d-box-win d-box-probe" rx="1" x="596" y="720" width="404" height="48"/>
+                  <text class="d-cmd d-cmd-win" x="616" y="750" data-l="id">FileShare.None &rarr; ditolak</text>
+                  <text class="d-cmd d-cmd-win" x="616" y="750" data-l="en">FileShare.None &rarr; blocked</text>
+                </g>
+              </g>
+            </svg>
+          </div>
+
+          <figcaption data-l="id">
+            Enam stage berjalan dari atas ke bawah, dua jalur sejajar supaya tiap stage bisa
+            dibandingkan langsung ke samping. Stage 1 digambar sebagai satu node yang memotong
+            kedua jalur karena memang satu event push, dan jalurnya baru berpisah setelah itu.
+            Stage 7 digambar dengan garis putus karena bukan langkah deploy, melainkan
+            eksperimen yang menguji klaim di bagian berikutnya.
+          </figcaption>
+          <figcaption data-l="en">
+            Six stages run top to bottom, two parallel paths so each stage can be compared
+            straight across. Stage 1 is drawn as a single node spanning both paths because it
+            really is one push event, and the paths only diverge after it. Stage 7 is drawn
+            with a dashed outline because it is not a deploy step but an experiment that tests
+            the claim in the next section.
+          </figcaption>
+        </figure>
+
+    <div class="hero-foot">
+      <p data-l="id">
+        Setiap run mendeploy dua rilis, merollback, lalu membuktikan rilis lama
+        benar-benar kembali dilayani. Seluruhnya terjadi di dalam GitHub runner.
+      </p>
+      <p data-l="en">
+        Every run deploys two releases, rolls back, then proves the old release is
+        actually being served again. All of it happens inside GitHub runners.
+      </p>
+      <p class="note" data-l="id">
+        Dua tombol di atas menyaring seluruh halaman &mdash; diagram, langkah, dan tabel
+        sekaligus. Matikan satu untuk melihat hanya satu environment.
+      </p>
+      <p class="note" data-l="en">
+        The two buttons above filter the whole page at once &mdash; diagram, steps, and
+        table. Turn one off to see a single environment.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ==========================================================================
+     BAGIAN 3 — LANGKAH PER STAGE
+     ======================================================================= -->
+<section id="langkah">
+  <div class="bleed">
+    <div class="wrap" style="padding-inline:0">
+      <p class="eyebrow"><span data-l="id">02 &nbsp;Langkah</span><span data-l="en">02 &nbsp;Steps</span></p>
+      <h2 data-l="id">Command aslinya, bukan parafrase.</h2>
+      <h2 data-l="en">The actual commands, not paraphrases.</h2>
+      <p class="lede" style="margin-top:20px" data-l="id">
+        Setiap blok di bawah ini diambil dari file yang benar-benar dijalankan runner.
+        Kalau script di repo berubah, bagian ini yang salah, bukan script-nya.
+      </p>
+      <p class="lede" style="margin-top:20px" data-l="en">
+        Every block below comes from the files the runner actually executes. If a script
+        in the repo changes, this section is what's wrong &mdash; not the script.
+      </p>
+    </div>
+
+    <div class="steps" style="margin-top:36px">
+
+      <details>
+        <summary>
+          <span class="s-num">01</span>
+          <span class="s-title"><span data-l="id">Trigger</span><span data-l="en">Trigger</span></span>
+          <span class="s-chev" aria-hidden="true"></span>
+        </summary>
+        <div class="s-body">
+          <p class="s-why" data-l="id">
+            Satu workflow, dua job. Bukan matrix: hampir setiap step berbeda isinya antar
+            sistem operasi, dan matrix hanya akan menyembunyikan perbedaan yang justru mau
+            ditunjukkan.
+          </p>
+          <p class="s-why" data-l="en">
+            One workflow, two jobs. Not a matrix: nearly every step differs between the
+            two operating systems, and a matrix would only hide the very differences this
+            demo exists to show.
+          </p>
+          <div class="pair">
+            <div class="cmd cmd-both">
+              <div class="cmd-head">.github/workflows/deploy.yml</div>
+<pre data-l="id">on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        <span class="c"># Windows PowerShell 5.1, bukan pwsh 7:</span>
+        <span class="c"># drive IIS:\ tidak ada di pwsh 7.</span>
+        shell: powershell</pre>
+<pre data-l="en">on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        <span class="c"># Windows PowerShell 5.1, not pwsh 7:</span>
+        <span class="c"># the IIS:\ drive does not exist in pwsh 7.</span>
+        shell: powershell</pre>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="s-num">02</span>
+          <span class="s-title"><span data-l="id">Package</span><span data-l="en">Package</span></span>
+          <span class="s-chev" aria-hidden="true"></span>
+        </summary>
+        <div class="s-body">
+          <p class="s-why" data-l="id">
+            Perbedaan paling dangkal di seluruh pipeline: dua perkakas arsip yang
+            melakukan hal yang sama. Keduanya menaruh isi folder di akar arsip, supaya
+            hasil bongkarnya langsung berupa <code>index.html</code> di root rilis.
+          </p>
+          <p class="s-why" data-l="en">
+            The shallowest difference in the whole pipeline: two archive tools doing the
+            same thing. Both put the folder's contents at the archive root, so unpacking
+            yields <code>index.html</code> directly at the release root.
+          </p>
+          <div class="pair">
+            <div class="cmd cmd-lin">
+              <div class="cmd-head"><span class="mark mark-lin" aria-hidden="true"></span>Linux</div>
+<pre>tar -czf app.tar.gz -C app .</pre>
+            </div>
+            <div class="cmd cmd-win">
+              <div class="cmd-head"><span class="mark mark-win" aria-hidden="true"></span>Windows</div>
+<pre>Compress-Archive `
+  -Path app\* `
+  -DestinationPath app.zip -Force</pre>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="s-num">03</span>
+          <span class="s-title"><span data-l="id">Siapkan web server</span><span data-l="en">Set up the web server</span></span>
+          <span class="s-chev" aria-hidden="true"></span>
+        </summary>
+        <div class="s-body">
+          <p class="s-why" data-l="id">
+            Beda biaya yang nyata. nginx terpasang dalam hitungan detik. IIS tidak ada di
+            image <code>windows-latest</code> dan harus dinyalakan sebagai Windows optional
+            feature, satu sampai tiga menit, dan itu langkah paling lambat di seluruh
+            pipeline.
+          </p>
+          <p class="s-why" data-l="en">
+            A real difference in cost. nginx installs in seconds. IIS is not present in the
+            <code>windows-latest</code> image and has to be enabled as a Windows optional
+            feature &mdash; one to three minutes, and the slowest step in the entire
+            pipeline.
+          </p>
+          <div class="pair">
+            <div class="cmd cmd-lin">
+              <div class="cmd-head"><span class="mark mark-lin" aria-hidden="true"></span>Linux</div>
+<pre data-l="id">sudo apt-get install -y -qq nginx
+
+sudo install -m 644 \
+  linux/nginx-demo.conf \
+  /etc/nginx/conf.d/demo.conf
+
+<span class="c"># validasi config sebelum dipakai, supaya</span>
+<span class="c"># config salah tidak baru terlihat saat</span>
+<span class="c"># nginx sudah mati</span>
+sudo nginx -t
+sudo systemctl restart nginx
+
+curl -fsS http://localhost:8080/healthz</pre>
+<pre data-l="en">sudo apt-get install -y -qq nginx
+
+sudo install -m 644 \
+  linux/nginx-demo.conf \
+  /etc/nginx/conf.d/demo.conf
+
+<span class="c"># validate the config before using it, so a</span>
+<span class="c"># bad config is not discovered only after</span>
+<span class="c"># nginx has already gone down</span>
+sudo nginx -t
+sudo systemctl restart nginx
+
+curl -fsS http://localhost:8080/healthz</pre>
+            </div>
+            <div class="cmd cmd-win">
+              <div class="cmd-head"><span class="mark mark-win" aria-hidden="true"></span>Windows</div>
+<pre data-l="id">Enable-WindowsOptionalFeature -Online `
+  -All -NoRestart -FeatureName `
+    IIS-WebServerRole, IIS-WebServer, `
+    IIS-CommonHttpFeatures, `
+    IIS-StaticContent, `
+    IIS-DefaultDocument, IIS-HttpErrors, `
+    <span class="c"># tanpa yang ini, IIS hidup tapi</span>
+    <span class="c"># Import-Module WebAdministration gagal</span>
+    IIS-ManagementScriptingTools
+
+Start-Service W3SVC
+
+New-WebAppPool -Name demo
+New-Website -Name demo -Port 8080 `
+  -PhysicalPath $bootstrap `
+  -ApplicationPool demo</pre>
+<pre data-l="en">Enable-WindowsOptionalFeature -Online `
+  -All -NoRestart -FeatureName `
+    IIS-WebServerRole, IIS-WebServer, `
+    IIS-CommonHttpFeatures, `
+    IIS-StaticContent, `
+    IIS-DefaultDocument, IIS-HttpErrors, `
+    <span class="c"># without this one, IIS runs but</span>
+    <span class="c"># Import-Module WebAdministration fails</span>
+    IIS-ManagementScriptingTools
+
+Start-Service W3SVC
+
+New-WebAppPool -Name demo
+New-Website -Name demo -Port 8080 `
+  -PhysicalPath $bootstrap `
+  -ApplicationPool demo</pre>
+            </div>
+          </div>
+          <p class="note" data-l="id">
+            Port 8080 di kedua sisi, bukan 80. Default Web Site IIS sudah memegang port 80
+            dan sengaja tidak disentuh, jadi satu kelas kegagalan hilang.
+          </p>
+          <p class="note" data-l="en">
+            Port 8080 on both sides, not 80. The IIS Default Web Site already holds port 80
+            and is deliberately left alone, which removes an entire class of failure.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="s-num">04</span>
+          <span class="s-title"><span data-l="id">Deploy</span><span data-l="en">Deploy</span></span>
+          <span class="s-chev" aria-hidden="true"></span>
+        </summary>
+        <div class="s-body">
+          <p class="s-why" data-l="id">
+            Pola yang sama di kedua sisi: rilis masuk ke folder sendiri yang tidak pernah
+            disentuh lagi, lalu satu pointer diarahkan ke folder itu. Yang berbeda cuma
+            bentuk pointer-nya. Konsekuensinya tidak pernah ada file yang sedang dilayani
+            yang perlu ditimpa, jadi seluruh persoalan file lock Windows tidak muncul di
+            jalur deploy.
+          </p>
+          <p class="s-why" data-l="en">
+            The same pattern on both sides: each release goes into its own folder that is
+            never touched again, then a single pointer is aimed at that folder. Only the
+            shape of the pointer differs. The consequence is that no file being served ever
+            needs to be overwritten, so the whole Windows file-locking problem never
+            appears on the deploy path at all.
+          </p>
+          <div class="pair">
+            <div class="cmd cmd-lin">
+              <div class="cmd-head"><span class="mark mark-lin" aria-hidden="true"></span><span data-l="id">Linux &mdash; symlink</span><span data-l="en">Linux &mdash; symlink</span></div>
+<pre data-l="id">tar -xzf "$PACKAGE" -C "$RELEASE_DIR"
+
+<span class="c"># cap build id, supaya tiap rilis bisa</span>
+<span class="c"># dibedakan dari luar lewat HTTP</span>
+sed -i "s/__BUILD_ID__/${BUILD_ID}/g" \
+  "$RELEASE_DIR"/*.html
+
+<span class="c"># catat tujuan rollback sebelum swap</span>
+readlink -f "$CURRENT" &gt; "$PREVIOUS"
+
+<span class="c"># ln -sfn langsung ke current tidak atomic:</span>
+<span class="c"># ada jeda tanpa symlink. mv -T membuat</span>
+<span class="c"># pergantiannya satu rename tunggal.</span>
+ln -sfn "$RELEASE_DIR" "$CURRENT.tmp"
+mv -T "$CURRENT.tmp" "$CURRENT"</pre>
+<pre data-l="en">tar -xzf "$PACKAGE" -C "$RELEASE_DIR"
+
+<span class="c"># stamp the build id, so each release can be</span>
+<span class="c"># told apart from the outside over HTTP</span>
+sed -i "s/__BUILD_ID__/${BUILD_ID}/g" \
+  "$RELEASE_DIR"/*.html
+
+<span class="c"># record the rollback target before swapping</span>
+readlink -f "$CURRENT" &gt; "$PREVIOUS"
+
+<span class="c"># ln -sfn straight onto current is not atomic:</span>
+<span class="c"># there is a gap with no symlink. mv -T makes</span>
+<span class="c"># the switch a single rename.</span>
+ln -sfn "$RELEASE_DIR" "$CURRENT.tmp"
+mv -T "$CURRENT.tmp" "$CURRENT"</pre>
+            </div>
+            <div class="cmd cmd-win">
+              <div class="cmd-head"><span class="mark mark-win" aria-hidden="true"></span><span data-l="id">Windows &mdash; physicalPath</span><span data-l="en">Windows &mdash; physicalPath</span></div>
+<pre data-l="id">Expand-Archive -Path $PackagePath `
+  -DestinationPath $releaseDir -Force
+
+<span class="c"># penyebab HTTP 403 paling umum di IIS baru:</span>
+<span class="c"># app pool tidak bisa membaca foldernya</span>
+icacls.exe $releaseDir `
+  /grant 'IIS_IUSRS:(OI)(CI)(RX)' /T /C /Q
+
+Set-Content -Path $previous -Value $activePath
+
+<span class="c"># satu atribut di applicationHost.config.</span>
+<span class="c"># IIS memantau file itu dan memuat ulang</span>
+<span class="c"># tanpa restart.</span>
+Set-ItemProperty "IIS:\Sites\demo" `
+  -Name physicalPath -Value $releaseDir
+
+Restart-WebAppPool -Name demo</pre>
+<pre data-l="en">Expand-Archive -Path $PackagePath `
+  -DestinationPath $releaseDir -Force
+
+<span class="c"># the most common cause of HTTP 403 on fresh</span>
+<span class="c"># IIS: the app pool cannot read its folder</span>
+icacls.exe $releaseDir `
+  /grant 'IIS_IUSRS:(OI)(CI)(RX)' /T /C /Q
+
+Set-Content -Path $previous -Value $activePath
+
+<span class="c"># one attribute in applicationHost.config.</span>
+<span class="c"># IIS watches that file and reloads the site</span>
+<span class="c"># without a restart.</span>
+Set-ItemProperty "IIS:\Sites\demo" `
+  -Name physicalPath -Value $releaseDir
+
+Restart-WebAppPool -Name demo</pre>
+            </div>
+          </div>
+          <p class="note" data-l="id">
+            <code>app_offline.htm</code> sengaja tidak dipakai. File itu hanya dihormati
+            handler ASP.NET dan ASP.NET Core Module, bukan static file handler IIS, jadi
+            untuk site static HTML seperti ini tidak akan pernah tampil.
+          </p>
+          <p class="note" data-l="en">
+            <code>app_offline.htm</code> is deliberately not used. It is honoured only by
+            the ASP.NET and ASP.NET Core Module handlers, not by the IIS static file
+            handler, so on a static-HTML site like this one it would never appear at all.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="s-num">05</span>
+          <span class="s-title"><span data-l="id">Smoke test</span><span data-l="en">Smoke test</span></span>
+          <span class="s-chev" aria-hidden="true"></span>
+        </summary>
+        <div class="s-body">
+          <p class="s-why" data-l="id">
+            Dua pengecekan, bukan satu. Build id baru harus ada, <em>dan</em> build id lama
+            harus sudah tidak ada. Tanpa pengecekan kedua, test ini tetap lolos walaupun
+            pointer rilisnya tidak pernah berpindah &mdash; dan itu berarti rollback bisa
+            rusak tanpa ada yang tahu.
+          </p>
+          <p class="s-why" data-l="en">
+            Two checks, not one. The new build id must be present, <em>and</em> the old one
+            must be gone. Without the second check this test still passes even if the
+            release pointer never moved &mdash; which means rollback could be broken and
+            nobody would find out.
+          </p>
+          <div class="pair">
+            <div class="cmd cmd-lin">
+              <div class="cmd-head"><span class="mark mark-lin" aria-hidden="true"></span>Linux</div>
+<pre data-l="id"><span class="c"># -f membuat curl exit non-zero untuk 4xx/5xx,</span>
+<span class="c"># jadi HTTP error tidak lolos sebagai body kosong</span>
+body="$(curl -fsS --max-time 10 "$URL")"
+
+<span class="c"># -F: cocokkan sebagai teks biasa. Build id</span>
+<span class="c"># mengandung titik, dan tanpa -F titik itu</span>
+<span class="c"># cocok dengan karakter apa pun.</span>
+grep -qF -- "$MUST_CONTAIN"     &lt;&lt;&lt; "$body"
+grep -qF -- "$MUST_NOT_CONTAIN" &lt;&lt;&lt; "$body"</pre>
+<pre data-l="en"><span class="c"># -f makes curl exit non-zero on 4xx/5xx, so an</span>
+<span class="c"># HTTP error cannot slip through as an empty body</span>
+body="$(curl -fsS --max-time 10 "$URL")"
+
+<span class="c"># -F: match as plain text. The build id contains</span>
+<span class="c"># a dot, and without -F that dot would match</span>
+<span class="c"># any character at all.</span>
+grep -qF -- "$MUST_CONTAIN"     &lt;&lt;&lt; "$body"
+grep -qF -- "$MUST_NOT_CONTAIN" &lt;&lt;&lt; "$body"</pre>
+            </div>
+            <div class="cmd cmd-win">
+              <div class="cmd-head"><span class="mark mark-win" aria-hidden="true"></span>Windows</div>
+<pre data-l="id"><span class="c"># -UseBasicParsing: jangan bergantung pada</span>
+<span class="c"># mesin DOM Internet Explorer, yang tidak ada</span>
+<span class="c"># di image runner</span>
+$r = Invoke-WebRequest -Uri $Url `
+  -UseBasicParsing -TimeoutSec 10
+
+<span class="c"># .Contains(), bukan -match, supaya build id</span>
+<span class="c"># diperlakukan sebagai teks dan bukan regex</span>
+$r.Content.Contains($MustContain)
+$r.Content.Contains($MustNotContain)</pre>
+<pre data-l="en"><span class="c"># -UseBasicParsing: do not depend on the</span>
+<span class="c"># Internet Explorer DOM engine, which is not</span>
+<span class="c"># present in the runner image</span>
+$r = Invoke-WebRequest -Uri $Url `
+  -UseBasicParsing -TimeoutSec 10
+
+<span class="c"># .Contains(), not -match, so the build id is</span>
+<span class="c"># treated as text rather than as a regex</span>
+$r.Content.Contains($MustContain)
+$r.Content.Contains($MustNotContain)</pre>
+            </div>
+          </div>
+          <p class="note" data-l="id">
+            Kedua sisi mencoba lima kali dengan jeda dua detik sebelum gagal keras. Bukan
+            kosmetik: setelah pointer berganti, cache http.sys di Windows bisa masih
+            melayani isi lama beberapa saat. Tanpa retry, pipeline-nya flaky, dan
+            flaky-nya muncul tepat saat demo.
+          </p>
+          <p class="note" data-l="en">
+            Both sides retry five times with a two-second gap before failing hard. Not
+            cosmetic: after the pointer moves, the http.sys cache on Windows can keep
+            serving the old content for a moment. Without retries the pipeline is flaky,
+            and the flakiness shows up exactly during a demo.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="s-num">06</span>
+          <span class="s-title"><span data-l="id">Rollback</span><span data-l="en">Rollback</span></span>
+          <span class="s-chev" aria-hidden="true"></span>
+        </summary>
+        <div class="s-body">
+          <p class="s-why" data-l="id">
+            Rollback bukan jalur kode khusus, cuma deploy ke arah sebaliknya, memakai
+            mekanisme yang identik. Artinya rollback tidak bisa busuk tanpa deploy ikut
+            busuk juga. File <code>previous</code> dihapus setelah dipakai, jadi rollback
+            kedua berturut-turut adalah no-op yang eksplisit, bukan toggle bolak-balik.
+          </p>
+          <p class="s-why" data-l="en">
+            Rollback is not a special code path, just a deploy in the opposite direction
+            using an identical mechanism. That means rollback cannot rot without deploy
+            rotting too. The <code>previous</code> file is deleted once used, so a second
+            rollback in a row is an explicit no-op rather than a toggle back and forth.
+          </p>
+          <div class="pair">
+            <div class="cmd cmd-lin">
+              <div class="cmd-head"><span class="mark mark-lin" aria-hidden="true"></span><span data-l="id">Linux &mdash; 1 operasi</span><span data-l="en">Linux &mdash; 1 operation</span></div>
+<pre>TARGET="$(cat "$PREVIOUS")"
+
+ln -sfn "$TARGET" "$CURRENT.tmp"
+mv -T "$CURRENT.tmp" "$CURRENT"
+
+rm -f "$PREVIOUS"</pre>
+            </div>
+            <div class="cmd cmd-win">
+              <div class="cmd-head"><span class="mark mark-win" aria-hidden="true"></span><span data-l="id">Windows &mdash; 2 operasi</span><span data-l="en">Windows &mdash; 2 operations</span></div>
+<pre data-l="id">$target = Get-Content -Path $previous |
+          Select-Object -First 1
+
+Set-ItemProperty "IIS:\Sites\demo" `
+  -Name physicalPath -Value $target
+
+<span class="c"># langkah yang tidak ada padanannya di Linux.</span>
+<span class="c"># mengganti pointer saja belum menjamin</span>
+<span class="c"># request berikutnya melihat isi baru.</span>
+Restart-WebAppPool -Name demo
+
+Remove-Item -Path $previous -Force</pre>
+<pre data-l="en">$target = Get-Content -Path $previous |
+          Select-Object -First 1
+
+Set-ItemProperty "IIS:\Sites\demo" `
+  -Name physicalPath -Value $target
+
+<span class="c"># the step with no Linux counterpart.</span>
+<span class="c"># swapping the pointer alone does not</span>
+<span class="c"># guarantee the next request sees the change.</span>
+Restart-WebAppPool -Name demo
+
+Remove-Item -Path $previous -Force</pre>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="s-num">07</span>
+          <span class="s-title"><span data-l="id">Lock probe</span><span data-l="en">Lock probe</span></span>
+          <span class="s-chev" aria-hidden="true"></span>
+        </summary>
+        <div class="s-body">
+          <p class="s-why" data-l="id">
+            Stage ini tidak mendeploy apa pun. Tugasnya menguji klaim yang paling sering
+            diucapkan tentang dua sistem operasi ini, dan memecahnya jadi dua bagian
+            karena hanya satu bagiannya yang deterministik.
+          </p>
+          <p class="s-why" data-l="en">
+            This stage deploys nothing. Its job is to test the claim most often repeated
+            about these two operating systems, and to split it in two &mdash; because only
+            one half of it is deterministic.
+          </p>
+          <div class="pair">
+            <div class="cmd cmd-lin">
+              <div class="cmd-head"><span class="mark mark-lin" aria-hidden="true"></span><span data-l="id">Linux &mdash; diizinkan</span><span data-l="en">Linux &mdash; allowed</span></div>
+<pre data-l="id"><span class="c"># fd 9 memegang file ini</span>
+exec 9&lt; "$held"
+
+printf 'isi-baru\n' &gt; "$held"  <span class="c"># berhasil</span>
+rm "$held"                     <span class="c"># berhasil</span>
+
+<span class="c"># nama hilang dari direktori, tapi inode-nya</span>
+<span class="c"># belum dibebaskan: pemegang fd tetap membaca</span>
+cat &lt;&amp;9</pre>
+<pre data-l="en"><span class="c"># fd 9 holds this file open</span>
+exec 9&lt; "$held"
+
+printf 'new\n' &gt; "$held"   <span class="c"># succeeds</span>
+rm "$held"                 <span class="c"># succeeds</span>
+
+<span class="c"># the name is gone from the directory, but the</span>
+<span class="c"># inode is not freed: the fd holder still reads</span>
+cat &lt;&amp;9</pre>
+            </div>
+            <div class="cmd cmd-win">
+              <div class="cmd-head"><span class="mark mark-win" aria-hidden="true"></span><span data-l="id">Windows &mdash; ditolak</span><span data-l="en">Windows &mdash; blocked</span></div>
+<pre data-l="id"><span class="c"># FileShare.None: selama handle ini terbuka,</span>
+<span class="c"># tidak ada proses lain yang boleh membuka</span>
+<span class="c"># file ini untuk apa pun</span>
+$stream = [System.IO.File]::Open($held,
+  [System.IO.FileMode]::Open,
+  [System.IO.FileAccess]::Read,
+  [System.IO.FileShare]::None)
+
+[System.IO.File]::WriteAllText(
+  $held, 'isi-baru')      <span class="c"># IOException</span>
+[System.IO.File]::Delete(
+  $held)                  <span class="c"># IOException</span></pre>
+<pre data-l="en"><span class="c"># FileShare.None: while this handle is open, no</span>
+<span class="c"># other process may open this file for anything</span>
+<span class="c"># at all</span>
+$stream = [System.IO.File]::Open($held,
+  [System.IO.FileMode]::Open,
+  [System.IO.FileAccess]::Read,
+  [System.IO.FileShare]::None)
+
+[System.IO.File]::WriteAllText(
+  $held, 'new')           <span class="c"># IOException</span>
+[System.IO.File]::Delete(
+  $held)                  <span class="c"># IOException</span></pre>
+            </div>
+          </div>
+          <p class="note" data-l="id">
+            Eksperimen di atas diassert: kalau hasilnya tidak sesuai, job-nya merah.
+            Eksperimen keduanya tidak &mdash; menimpa <code>index.html</code> yang sedang
+            dilayani IIS justru <em>biasanya berhasil</em>, karena IIS tidak memegang
+            handle eksklusif atas file static. Yang muncul masalah lain: response bisa
+            masih berisi isi lama karena cache http.sys. Hasilnya dilaporkan apa adanya ke
+            step summary, tidak diassert, karena bergantung pada image runner.
+          </p>
+          <p class="note" data-l="en">
+            The experiment above is asserted: if the result differs, the job goes red. The
+            other experiment is not &mdash; overwriting the <code>index.html</code> that
+            IIS is currently serving <em>usually succeeds</em>, because IIS holds no
+            exclusive handle on static files. What shows up instead is a different problem:
+            the response may still carry the old content because of the http.sys cache.
+            That result is reported as observed into the step summary rather than asserted,
+            because it depends on the runner image.
+          </p>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     BAGIAN 4 — TABEL PERBEDAAN
+     ======================================================================= -->
+<section id="beda">
+  <div class="bleed">
+    <div class="wrap" style="padding-inline:0">
+      <p class="eyebrow"><span data-l="id">03 &nbsp;Perbedaan</span><span data-l="en">03 &nbsp;Differences</span></p>
+      <h2 data-l="id">Empat baris, dan keempatnya punya bukti di log run.</h2>
+      <h2 data-l="en">Four rows, and all four have evidence in the run log.</h2>
+    </div>
+
+    <div class="scroller" style="margin-top:36px">
+      <table>
+        <caption>
+          <span data-l="id">
+            Kalau salah satu baris ini dipertanyakan, jawabannya ada di step yang bisa
+            ditunjuk di tab Actions, bukan di argumen.
+          </span>
+          <span data-l="en">
+            If any row here is questioned, the answer is a step you can point at in the
+            Actions tab, not an argument.
+          </span>
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col"><span data-l="id">Hal</span><span data-l="en">Aspect</span></th>
+            <th scope="col" class="th-lin">Linux &middot; nginx</th>
+            <th scope="col" class="th-win">Windows &middot; IIS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><span data-l="id">Pasang web server</span><span data-l="en">Install the web server</span></th>
+            <td class="cell-lin">
+              apt-get install nginx
+              <span class="cell-cost" data-l="id">~20 detik</span>
+              <span class="cell-cost" data-l="en">~20 seconds</span>
+            </td>
+            <td class="cell-win">
+              Enable-WindowsOptionalFeature
+              <span class="cell-cost" data-l="id">1&ndash;3 menit, tidak ada di image runner</span>
+              <span class="cell-cost" data-l="en">1&ndash;3 minutes, absent from the runner image</span>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="id">Pointer rilis</span><span data-l="en">Release pointer</span></th>
+            <td class="cell-lin">
+              symlink current
+              <span class="cell-cost" data-l="id">objek filesystem</span>
+              <span class="cell-cost" data-l="en">a filesystem object</span>
+            </td>
+            <td class="cell-win">
+              atribut physicalPath
+              <span class="cell-cost" data-l="id">entri di applicationHost.config</span>
+              <span class="cell-cost" data-l="en">an entry in applicationHost.config</span>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Rollback</th>
+            <td class="cell-lin">
+              mv -T
+              <span class="cell-cost" data-l="id">1 operasi</span>
+              <span class="cell-cost" data-l="en">1 operation</span>
+            </td>
+            <td class="cell-win">
+              Set-ItemProperty + Restart-WebAppPool
+              <span class="cell-cost" data-l="id">2 operasi</span>
+              <span class="cell-cost" data-l="en">2 operations</span>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="id">File yang sedang dipakai</span><span data-l="en">A file currently in use</span></th>
+            <td class="cell-lin">
+              <span data-l="id">unlink dan timpa bebas</span><span data-l="en">unlink and overwrite freely</span>
+              <span class="cell-cost" data-l="id">pemegang fd tetap membaca inode lama</span>
+              <span class="cell-cost" data-l="en">the fd holder still reads the old inode</span>
+            </td>
+            <td class="cell-win">
+              <span data-l="id">FileShare.None memblokir keduanya</span><span data-l="en">FileShare.None blocks both</span>
+              <span class="cell-cost" data-l="id">IOException sampai handle ditutup</span>
+              <span class="cell-cost" data-l="en">IOException until the handle is closed</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     BAGIAN 5 — STORED PROCEDURE DAN VENDOR LOCK-IN
+     ======================================================================= -->
+<section id="lockin">
+  <div class="bleed">
+    <div class="wrap stack" style="padding-inline:0">
+      <div>
+        <p class="eyebrow"><span data-l="id">04 &nbsp;Lock-in</span><span data-l="en">04 &nbsp;Lock-in</span></p>
+        <h2 data-l="id">Yang mengunci Anda bukan stored procedure. Tapi stored procedure yang tidak pernah keluar dari produksi.</h2>
+        <h2 data-l="en">What locks you in isn't the stored procedure. It's the stored procedure that never leaves production.</h2>
+      </div>
+
+      <p class="lede" data-l="id">
+        Enam stage di atas sebenarnya tidak bicara soal nginx atau IIS. Yang dijaganya
+        empat sifat, dan keempatnya tidak punya hubungan dengan sistem operasi.
+      </p>
+      <p class="lede" data-l="en">
+        The six stages above are not really about nginx or IIS. What they protect is four
+        properties, and none of the four has anything to do with an operating system.
+      </p>
+
+      <ol class="stack-tight" style="margin:0; padding-left:1.4em" data-l="id">
+        <li>Artefaknya ada sebagai file yang di-versioning, bukan sebagai keadaan di satu mesin.</li>
+        <li>Setiap perubahan diassert, dan assert-nya gagal keras.</li>
+        <li>Jalan kembalinya sudah ada sebelum dibutuhkan, dan ikut diuji tiap run.</li>
+        <li>Semuanya bisa dijalankan ulang dari nol tanpa laptop siapa pun.</li>
+      </ol>
+      <ol class="stack-tight" style="margin:0; padding-left:1.4em" data-l="en">
+        <li>The artifact exists as a versioned file, not as state on one machine.</li>
+        <li>Every change is asserted, and the assertion fails hard.</li>
+        <li>The way back exists before it is needed, and is exercised on every run.</li>
+        <li>The whole thing can be rebuilt from zero without anyone's laptop.</li>
+      </ol>
+
+      <p data-l="id">
+        Stored procedure bisa punya keempatnya. Biasanya tidak &mdash; bukan karena dia
+        stored procedure, tapi karena satu-satunya salinan otoritatifnya hidup di dalam
+        instance produksi. Tidak ada file di repo, tidak ada CI yang menerapkannya ke
+        instance sekali pakai, tidak ada smoke test, tidak ada script rollback.
+      </p>
+      <p data-l="en">
+        A stored procedure can have all four. Usually it doesn't &mdash; not because it is
+        a stored procedure, but because its only authoritative copy lives inside the
+        production instance. No file in a repo, no CI applying it to a disposable
+        instance, no smoke test, no rollback script.
+      </p>
+
+      <p data-l="id">
+        Dan di situlah biaya keluarnya, bukan di dialek SQL-nya. Dialek bisa
+        diterjemahkan, dan ada perkakas untuk itu. Yang tidak bisa diterjemahkan adalah
+        logika yang tidak seorang pun tahu bentuk lengkapnya tanpa membuka database yang
+        sedang jalan.
+      </p>
+      <p data-l="en">
+        And that is where the exit cost sits, not in the SQL dialect. Dialects can be
+        translated, and there are tools for it. What cannot be translated is logic whose
+        full shape nobody knows without opening the running database.
+      </p>
+    </div>
+
+    <div class="scroller" style="margin-top:36px; margin-bottom:36px">
+      <table>
+        <caption>
+          <span data-l="id">Empat sifat yang sama, diterapkan ke dua tempat logika bisa tinggal.</span>
+          <span data-l="en">The same four properties, applied to two places logic can live.</span>
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col"><span data-l="id">Sifat</span><span data-l="en">Property</span></th>
+            <th scope="col"><span data-l="id">Pipeline di repo ini</span><span data-l="en">The pipeline in this repo</span></th>
+            <th scope="col"><span data-l="id">Logika yang hanya hidup di produksi</span><span data-l="en">Logic that only lives in production</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><span data-l="id">Di-versioning</span><span data-l="en">Versioned</span></th>
+            <td><span data-l="id">file di <code>linux/</code> dan <code>windows/</code></span><span data-l="en">files in <code>linux/</code> and <code>windows/</code></span></td>
+            <td><span data-l="id">tidak ada file, cuma keadaan di satu instance</span><span data-l="en">no file, just state on one instance</span></td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="id">Diassert</span><span data-l="en">Asserted</span></th>
+            <td><span data-l="id">smoke test gagal keras tiap stage</span><span data-l="en">smoke tests fail hard at every stage</span></td>
+            <td><span data-l="id">ketahuan saat laporan salah</span><span data-l="en">found out when a report comes out wrong</span></td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="id">Bisa dibalik</span><span data-l="en">Reversible</span></th>
+            <td><span data-l="id">script rollback, ikut dijalankan tiap run</span><span data-l="en">a rollback script, exercised on every run</span></td>
+            <td><span data-l="id">restore dari backup, dicoba saat panik</span><span data-l="en">restore from backup, attempted in a panic</span></td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="id">Bisa diulang dari nol</span><span data-l="en">Reproducible from zero</span></th>
+            <td><span data-l="id">fork lalu push, tanpa secret apa pun</span><span data-l="en">fork then push, with no secrets at all</span></td>
+            <td><span data-l="id">bergantung pada orang yang masih ingat</span><span data-l="en">depends on whoever still remembers</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wrap stack" style="padding-inline:0">
+      <h3 data-l="id">Yang akan saya lakukan</h3>
+      <h3 data-l="en">What I would do</h3>
+      <p data-l="id">
+        Hal yang sama dengan yang ditunjukkan pipeline ini, dipindah ke database. File
+        migrasi hidup di repo. CI menerapkannya ke instance sekali pakai dan menjalankan
+        assert di atasnya. Setiap migrasi punya pasangan turunnya. Skema utuh bisa
+        dibangun dari nol tanpa menyentuh produksi. Begitu itu ada, pertanyaan
+        &ldquo;berapa mahal keluar dari engine ini&rdquo; berubah dari perasaan jadi
+        angka yang bisa dihitung.
+      </p>
+      <p data-l="en">
+        The same thing this pipeline demonstrates, moved to the database. Migration files
+        live in the repo. CI applies them to a disposable instance and runs assertions
+        against it. Every migration has its down counterpart. The full schema can be built
+        from zero without touching production. Once that exists, the question &ldquo;how
+        expensive is it to leave this engine&rdquo; stops being a feeling and becomes a
+        number you can compute.
+      </p>
+      <p class="note" data-l="id">
+        Pengalaman produksi saya di sisi database ada di PostgreSQL dan MySQL &mdash;
+        Patroni, PgBouncer, WAL-G, Debezium, dan replikasi di sekitarnya. Bukan SQL
+        Server. Yang saya bawa ke sini polanya, bukan klaim jam terbang di engine Anda.
+      </p>
+      <p class="note" data-l="en">
+        My production experience on the database side is PostgreSQL and MySQL &mdash;
+        Patroni, PgBouncer, WAL-G, Debezium, and the replication around them. Not SQL
+        Server. What I bring here is the pattern, not a claim of mileage on your engine.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     BAGIAN 6 — REPO DAN CARA MENCOBA
+     ======================================================================= -->
+<section id="repo">
+  <div class="wrap stack">
+    <div>
+      <p class="eyebrow"><span data-l="id">05 &nbsp;Repo</span><span data-l="en">05 &nbsp;Repo</span></p>
+      <h2 data-l="id">Bisa dijalankan sendiri dalam dua perintah.</h2>
+      <h2 data-l="en">You can run it yourself in two commands.</h2>
+    </div>
+
+    <pre class="tree" data-l="id">devops-workflow-demo/
+&#9500;&#9472; .github/workflows/deploy.yml  <span class="c">2 job paralel, 7 stage</span>
+&#9500;&#9472; app/index.html                <span class="c">berisi __BUILD_ID__</span>
+&#9500;&#9472; linux/
+&#9474;  &#9500;&#9472; nginx-demo.conf            <span class="c">port 8080, root ke symlink</span>
+&#9474;  &#9500;&#9472; deploy.sh                  <span class="c">rilis baru, tukar pointer</span>
+&#9474;  &#9500;&#9472; rollback.sh                <span class="c">pointer balik ke previous</span>
+&#9474;  &#9500;&#9472; smoke-test.sh              <span class="c">curl + assert, retry</span>
+&#9474;  &#9492;&#9472; lock-probe.sh              <span class="c">eksperimen unlink</span>
+&#9500;&#9472; windows/
+&#9474;  &#9500;&#9472; iis-setup.ps1              <span class="c">fitur IIS, app pool, site</span>
+&#9474;  &#9500;&#9472; deploy.ps1                 <span class="c">rilis baru, tukar pointer</span>
+&#9474;  &#9500;&#9472; rollback.ps1               <span class="c">pointer balik, recycle</span>
+&#9474;  &#9500;&#9472; smoke-test.ps1             <span class="c">Invoke-WebRequest + assert</span>
+&#9474;  &#9492;&#9472; lock-probe.ps1             <span class="c">eksperimen FileShare.None</span>
+&#9500;&#9472; docs/index.html               <span class="c">halaman ini, GitHub Pages</span>
+&#9492;&#9472; README.md                     <span class="c">cara reproduce dari nol</span></pre>
+    <pre class="tree" data-l="en">devops-workflow-demo/
+&#9500;&#9472; .github/workflows/deploy.yml  <span class="c">2 parallel jobs, 7 stages</span>
+&#9500;&#9472; app/index.html                <span class="c">holds __BUILD_ID__</span>
+&#9500;&#9472; linux/
+&#9474;  &#9500;&#9472; nginx-demo.conf            <span class="c">port 8080, root to symlink</span>
+&#9474;  &#9500;&#9472; deploy.sh                  <span class="c">new release, swap pointer</span>
+&#9474;  &#9500;&#9472; rollback.sh                <span class="c">pointer back to previous</span>
+&#9474;  &#9500;&#9472; smoke-test.sh              <span class="c">curl + assert, with retry</span>
+&#9474;  &#9492;&#9472; lock-probe.sh              <span class="c">the unlink experiment</span>
+&#9500;&#9472; windows/
+&#9474;  &#9500;&#9472; iis-setup.ps1              <span class="c">IIS features, pool, site</span>
+&#9474;  &#9500;&#9472; deploy.ps1                 <span class="c">new release, swap pointer</span>
+&#9474;  &#9500;&#9472; rollback.ps1               <span class="c">pointer back, recycle pool</span>
+&#9474;  &#9500;&#9472; smoke-test.ps1             <span class="c">Invoke-WebRequest + assert</span>
+&#9474;  &#9492;&#9472; lock-probe.ps1             <span class="c">the FileShare.None probe</span>
+&#9500;&#9472; docs/index.html               <span class="c">this page, GitHub Pages</span>
+&#9492;&#9472; README.md                     <span class="c">how to reproduce from zero</span></pre>
+
+    <pre class="run" data-l="id">gh repo fork enggarranu/devops-workflow-demo --clone
+cd devops-workflow-demo
+
+git commit --allow-empty -m "picu pipeline"
+git push</pre>
+    <pre class="run" data-l="en">gh repo fork enggarranu/devops-workflow-demo --clone
+cd devops-workflow-demo
+
+git commit --allow-empty -m "trigger the pipeline"
+git push</pre>
+
+    <p data-l="id">
+      Tidak ada secret, variable, atau self-hosted runner yang perlu disiapkan. Dua job
+      jalan paralel; yang Linux selesai sekitar satu menit, yang Windows empat sampai
+      enam menit karena harus menyalakan IIS lebih dulu.
+    </p>
+    <p data-l="en">
+      No secrets, variables, or self-hosted runners to set up. Two jobs run in parallel;
+      the Linux one finishes in about a minute, the Windows one in four to six because it
+      has to enable IIS first.
+    </p>
+
+    <div class="links">
+      <a class="link" href="https://github.com/enggarranu/devops-workflow-demo">repo &#8599;</a>
+      <a class="link" href="https://github.com/enggarranu/devops-workflow-demo/actions/workflows/deploy.yml"><span data-l="id">tab Actions &#8599;</span><span data-l="en">Actions tab &#8599;</span></a>
+    </div>
+
+    <p class="note" data-l="id">
+      Sisi Windows di repo ini saya pelajari untuk demo ini, bukan dari produksi.
+      Pengalaman produksi saya ada di Linux dan perkakas di sekitarnya: PostgreSQL,
+      MySQL, Patroni, HAProxy, Kafka, Terraform, Ansible, Prometheus. Yang ingin saya
+      tunjukkan di sini caranya memperlakukan deployment, bukan daftar teknologi.
+    </p>
+    <p class="note" data-l="en">
+      The Windows side of this repo is something I learned for this demo, not something I
+      ran in production. My production experience is on Linux and the tooling around it:
+      PostgreSQL, MySQL, Patroni, HAProxy, Kafka, Terraform, Ansible, Prometheus. What I
+      want to show here is how deployment is treated, not a list of technologies.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="note" data-l="id">
+      Halaman ini satu file HTML tanpa dependensi: CSS dan JS inline, tanpa CDN, tanpa
+      font eksternal, tanpa gambar eksternal. Dibuat supaya tetap utuh saat dibuka tanpa
+      koneksi internet.
+    </p>
+    <p class="note" data-l="en">
+      This page is a single HTML file with no dependencies: inline CSS and JS, no CDN, no
+      external fonts, no external images. Built to stay intact when opened with no
+      internet connection.
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var root = document.documentElement;
+
+  /* ------------------------------------------------------------------------
+     Bahasa.
+     Isi kedua bahasa sudah ada di markup dan disembunyikan lewat CSS, jadi
+     script ini cuma membalik satu atribut. Kalau script ini gagal, halaman
+     tetap utuh dalam bahasa default.
+     Yang tidak bisa diurus CSS cuma tiga hal: judul tab, atribut lang
+     dokumen, dan aria-label yang isinya teks.
+     --------------------------------------------------------------------- */
+  var STRINGS = {
+    id: {
+      title: "Dua Jalur Deploy",
+      env: "Pilih environment yang ditampilkan",
+      diagram: "Enam stage deploy berjalan dari atas ke bawah di dua jalur sejajar. " +
+               "Satu event push bercabang jadi dua job. Stage 3 memasang nginx lewat " +
+               "apt-get di Linux dan menyalakan IIS lewat DISM di Windows. Stage 4 " +
+               "mengganti symlink current di Linux dan atribut physicalPath di Windows. " +
+               "Stage 6 membalik pointer yang sama, dengan tambahan recycle app pool di " +
+               "Windows. Stage 7 terpisah dan menguji perilaku file lock kedua sistem operasi."
+    },
+    en: {
+      title: "Two Deploy Paths",
+      env: "Choose which environment is shown",
+      diagram: "Six deploy stages run top to bottom across two parallel paths. One push " +
+               "event forks into two jobs. Stage 3 installs nginx with apt-get on Linux " +
+               "and enables IIS with DISM on Windows. Stage 4 swaps the current symlink " +
+               "on Linux and the physicalPath attribute on Windows. Stage 6 reverses the " +
+               "same pointer, with an app pool recycle added on Windows. Stage 7 stands " +
+               "apart and tests the file-locking behaviour of both operating systems."
+    }
+  };
+
+  var langButtons = document.querySelectorAll(".langbtn[data-lang]");
+  var diagram = document.getElementById("diagram");
+  var envbar = document.getElementById("envbar");
+
+  function setLang(lang) {
+    if (!STRINGS[lang]) { lang = "en"; }
+    root.setAttribute("data-lang", lang);
+    root.setAttribute("lang", lang);
+    document.title = STRINGS[lang].title;
+    if (diagram) { diagram.setAttribute("aria-label", STRINGS[lang].diagram); }
+    if (envbar)  { envbar.setAttribute("aria-label", STRINGS[lang].env); }
+    for (var i = 0; i < langButtons.length; i++) {
+      langButtons[i].setAttribute(
+        "aria-pressed",
+        langButtons[i].getAttribute("data-lang") === lang ? "true" : "false");
+    }
+    try { localStorage.setItem("dwd-lang", lang); } catch (e) { /* file:// atau privat */ }
+  }
+
+  for (var i = 0; i < langButtons.length; i++) {
+    langButtons[i].addEventListener("click", function () {
+      setLang(this.getAttribute("data-lang"));
+    });
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem("dwd-lang"); } catch (e) { /* abaikan */ }
+  setLang(saved || "en");
+
+  /* ------------------------------------------------------------------------
+     Filter environment.
+     Dua tombol memberi tiga keadaan: keduanya, Linux saja, Windows saja.
+     Mematikan tombol yang tinggal satu-satunya mengembalikan ke keduanya,
+     jadi tidak pernah ada keadaan halaman kosong.
+     --------------------------------------------------------------------- */
+  var on = { linux: true, windows: true };
+  var envButtons = document.querySelectorAll(".envbtn[data-env]");
+
+  function applyEnv() {
+    var mode = on.linux && on.windows ? "both" : (on.linux ? "linux" : "windows");
+    root.setAttribute("data-env", mode);
+    for (var j = 0; j < envButtons.length; j++) {
+      var key = envButtons[j].getAttribute("data-env");
+      envButtons[j].setAttribute("aria-pressed", on[key] ? "true" : "false");
+    }
+  }
+
+  for (var k = 0; k < envButtons.length; k++) {
+    envButtons[k].addEventListener("click", function () {
+      var key = this.getAttribute("data-env");
+      on[key] = !on[key];
+      if (!on.linux && !on.windows) { on.linux = true; on.windows = true; }
+      applyEnv();
+    });
+  }
+  applyEnv();
+
+  /* ------------------------------------------------------------------------
+     Animasi diagram.
+     Dipicu saat diagram masuk viewport, supaya tidak habis diputar sebelum
+     pembaca sampai ke bagian itu. Kalau IntersectionObserver tidak ada,
+     semua stage langsung menyala — bukan tetap gelap.
+     --------------------------------------------------------------------- */
+  var replay = document.getElementById("replay");
+
+  function play() {
+    diagram.classList.remove("play");
+    diagram.classList.remove("lit");
+    void diagram.getBoundingClientRect();   /* paksa reflow supaya animasi restart */
+    diagram.classList.add("play");
+  }
+
+  if (diagram && "IntersectionObserver" in window) {
+    var seen = false;
+    var io = new IntersectionObserver(function (entries) {
+      for (var m = 0; m < entries.length; m++) {
+        if (entries[m].isIntersecting && !seen) { seen = true; play(); io.disconnect(); }
+      }
+    }, { threshold: 0.25 });
+    io.observe(diagram);
+  } else if (diagram) {
+    diagram.classList.add("lit");
+  }
+
+  if (replay && diagram) { replay.addEventListener("click", play); }
+
+  /* ------------------------------------------------------------------------
+     Badge CI.
+     Badge inline sudah tampil tanpa jaringan. Di sini dicoba memuat badge
+     asli GitHub; kalau berhasil, yang inline ditukar. Kalau gagal atau
+     offline, tidak ada yang berubah dan tidak ada ikon gambar rusak.
+     --------------------------------------------------------------------- */
+  var slot = document.getElementById("badge");
+  if (slot) {
+    var src = "https://github.com/enggarranu/devops-workflow-demo/actions/workflows/deploy.yml/badge.svg";
+    var probe = new Image();
+    var done = false;
+    var timer = setTimeout(function () { done = true; }, 3000);
+
+    probe.onload = function () {
+      if (done) { return; }
+      clearTimeout(timer);
+      done = true;
+      var img = document.createElement("img");
+      img.src = src;
+      img.alt = "GitHub Actions deploy status";
+      img.height = 34;
+      slot.replaceChild(img, slot.firstElementChild);
+    };
+    probe.onerror = function () { clearTimeout(timer); done = true; };
+    probe.src = src;
+  }
+})();
+</script>
+
+</body>
+</html>
