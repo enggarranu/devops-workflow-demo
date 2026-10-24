@@ -238,13 +238,42 @@ jobs:
       - name: "Stage 7 — Lock probe"
         run: .\windows\lock-probe.ps1 -Port $env:APP_PORT -SiteName $env:SITE_NAME
 
+      # # --- Ringkasan ---------------------------------------------------------------
+      # - name: Ringkasan
+      #   if: always()
+      #   run: |
+      #     Import-Module WebAdministration -ErrorAction SilentlyContinue
+      #     $active = try {
+      #       (Get-ItemProperty "IIS:\Sites\$env:SITE_NAME" -Name physicalPath).Value
+      #     } catch { '?' }
+
+      #     $lines = @()
+      #     $lines += "## Windows — IIS di windows-latest"
+      #     $lines += ''
+      #     $lines += '| Hal | Nilai |'
+      #     $lines += '| --- | --- |'
+      #     $lines += "| web server | IIS, site ``$env:SITE_NAME`` |"
+      #     $lines += '| pointer rilis | atribut ``physicalPath`` di applicationHost.config |'
+      #     $lines += "| build pertama | ``$env:BUILD_V1`` |"
+      #     $lines += "| build kedua | ``$env:BUILD_V2`` |"
+      #     $lines += "| aktif setelah rollback | ``$active`` |"
+      #     $lines += ''
+      #     $lines += 'Rilis di disk:'
+      #     $lines += ''
+      #     $lines += '```'
+      #     $lines += (Get-ChildItem -Path C:\inetpub\demo -ErrorAction SilentlyContinue | Out-String).Trim()
+      #     $lines += '```'
+
+      #     $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
       # --- Ringkasan ---------------------------------------------------------------
       - name: Ringkasan
         if: always()
         run: |
           Import-Module WebAdministration -ErrorAction SilentlyContinue
           $active = try {
-            (Get-ItemProperty "IIS:\Sites\$env:SITE_NAME" -Name physicalPath).Value
+            $site = Get-ItemProperty "IIS:\Sites\$env:SITE_NAME" -ErrorAction SilentlyContinue -Name physicalPath
+            if ($site) { $site.Value } else { '?' }
           } catch { '?' }
 
           $lines = @()
@@ -261,7 +290,6 @@ jobs:
           $lines += 'Rilis di disk:'
           $lines += ''
           $lines += '```'
-          $lines += (Get-ChildItem -Path C:\inetpub\demo -ErrorAction SilentlyContinue | Out-String).Trim()
-          $lines += '```'
+          $lines += (Get-ChildItem -Path C:\inetpub\demo -ErrorAction SilentlyContinue \vert{} Out-String).Trim()$lines += '```'
 
           $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
