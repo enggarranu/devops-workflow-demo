@@ -1,0 +1,666 @@
+<!doctype html>
+<!-- ============================================================================
+     DIBUAT OTOMATIS. Jangan diedit langsung.
+
+     Halaman ini dirakit oleh job `publish` di .github/workflows/deploy.yml dari
+     publish/template.html + metadata JSON yang ditulis job linux dan windows.
+     Edit template-nya, bukan hasilnya: perubahan di sini akan tertimpa pada
+     run berikutnya.
+     ========================================================================= -->
+<html lang="en" data-lang="en" data-platform="windows">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows result 1.0.10</title>
+<style>
+/* ============================================================================
+   TOKEN
+   Sama persis dengan docs/index.html, supaya halaman hasil terbaca sebagai
+   bagian dari situs yang sama, bukan halaman nyasar.
+   ========================================================================= */
+:root {
+  --ink:        #15171A;
+  --ink-2:      #4A5057;
+  --ink-3:      #6E757D;
+  --ground:     #FFFFFF;
+  --surface:    #F6F7F9;
+  --surface-2:  #EDEFF2;
+  --line:       #E3E6EA;
+  --line-2:     #C9CFD6;
+
+  --linux:      #A65D17;
+  --linux-bg:   #FDF4E9;
+  --windows:    #245FA6;
+  --windows-bg: #EDF3FA;
+  --pass:       #1F7A36;
+  --pass-bg:    #EAF5ED;
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --read: 880px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink:        #E8EAED;
+    --ink-2:      #A8B0B8;
+    --ink-3:      #868E96;
+    --ground:     #101215;
+    --surface:    #171A1E;
+    --surface-2:  #1F2328;
+    --line:       #2A2F35;
+    --line-2:     #3C434A;
+
+    --linux:      #E0A062;
+    --linux-bg:   #2A1E12;
+    --windows:    #86B4EA;
+    --windows-bg: #13202F;
+    --pass:       #5BC47C;
+    --pass-bg:    #16251B;
+  }
+}
+
+/* Satu template, dua halaman. Aksennya ditentukan oleh satu atribut di <html>,
+   jadi tidak ada warna yang ditulis dua kali. Redefinisi dark di atas ikut
+   terbawa dengan sendirinya. */
+html[data-platform="linux"]   { --accent: var(--linux);   --accent-bg: var(--linux-bg);   }
+html[data-platform="windows"] { --accent: var(--windows); --accent-bg: var(--windows-bg); }
+
+/* Isi kedua bahasa ada di markup; yang menyembunyikan salah satunya cuma CSS.
+   Jadi halaman tetap utuh kalau JavaScript-nya gagal. */
+html[data-lang="id"] [data-l="en"],
+html[data-lang="en"] [data-l="id"] { display: none; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  /* Lebih besar dari web biasa: halaman ini dibaca dari jarak satu meter. */
+  font-size: 20px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { width: 100%; max-width: var(--read); margin-inline: auto; padding-inline: 24px; }
+.stack { display: flex; flex-direction: column; gap: 22px; }
+
+section { padding-block: 44px; border-top: 1px solid var(--line); }
+section:first-of-type { border-top: 0; padding-block: 40px 44px; }
+
+h1, h2 { margin: 0; text-wrap: balance; letter-spacing: -0.015em; }
+h1 { font-size: 40px; line-height: 1.12; font-weight: 650; }
+h2 { font-size: 26px; line-height: 1.25; font-weight: 640; }
+p  { margin: 0; }
+
+.lede { font-size: 21px; line-height: 1.45; color: var(--ink-2); }
+.note { font-size: 17px; line-height: 1.55; color: var(--ink-3); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.eyebrow::before { content: ""; width: 28px; height: 1px; background: currentColor; }
+
+code { font-family: var(--mono); }
+
+/* ============================================================================
+   PEMILIH BAHASA
+   Kecil, mengambang di pojok kanan atas, dan memakai kunci localStorage yang
+   sama dengan halaman utama. Jadi bahasa yang dipilih di sana ikut terbawa
+   ke sini, karena keduanya satu origin di GitHub Pages.
+   ========================================================================= */
+.langfloat {
+  position: fixed; top: 14px; right: 14px; z-index: 10;
+  display: inline-flex; border-radius: 6px;
+  background: var(--ground);
+  box-shadow: 0 0 0 1px var(--line-2), 0 2px 8px rgba(0, 0, 0, .10);
+}
+.langbtn {
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  letter-spacing: 0.08em; color: var(--ink-3);
+  background: transparent; border: 0; border-radius: 6px;
+  padding: 7px 11px; cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.langbtn:hover { color: var(--ink); }
+.langbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.langbtn[aria-pressed="true"] { color: var(--ground); background: var(--ink); }
+
+/* ============================================================================
+   KEPALA HALAMAN
+   ========================================================================= */
+.plat {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 17px; font-weight: 600;
+  color: var(--accent); background: var(--accent-bg);
+  border: 1px solid var(--accent); border-radius: 5px;
+  padding: 7px 14px;
+}
+/* Penanda bentuk, bukan cuma warna: Linux bulat, Windows kotak. Sama seperti
+   di halaman utama, supaya dua jalur tetap bisa dibedakan tanpa warna. */
+.mark { width: 12px; height: 12px; flex: none; border: 2px solid currentColor; background: currentColor; }
+html[data-platform="linux"]   .mark { border-radius: 50%; }
+html[data-platform="windows"] .mark { border-radius: 1px; }
+
+.ver { font-family: var(--mono); font-size: 44px; font-weight: 650; letter-spacing: -0.02em; }
+
+/* ============================================================================
+   PANEL
+   Panel kejujuran dan panel rollback memakai rupa yang sama: garis aksen di
+   tepi kiri, bukan kotak berwarna penuh.
+   ========================================================================= */
+.panel {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-bg);
+  padding: 22px 26px;
+}
+.panel p { font-size: 19px; line-height: 1.55; }
+.panel p + p { margin-top: 12px; }
+.panel strong { font-weight: 640; }
+
+/* ============================================================================
+   LINK KE ACTIONS RUN
+   Inilah yang membuat angka di halaman ini bisa diverifikasi, bukan sekadar
+   angka yang ditulis sendiri. Jadi dia tombol besar, bukan tautan kecil.
+   ========================================================================= */
+.runlink {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  text-decoration: none; color: var(--ink);
+  border: 1px solid var(--line-2); border-radius: 6px;
+  background: var(--surface);
+  padding: 18px 22px;
+  transition: border-color .12s, background .12s;
+}
+.runlink:hover { border-color: var(--accent); background: var(--accent-bg); }
+.runlink:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.runlink-k { font-size: 18px; color: var(--ink-2); }
+.runlink-v { font-family: var(--mono); font-size: 22px; font-weight: 650; color: var(--accent); white-space: nowrap; }
+
+/* ============================================================================
+   TABEL
+   ========================================================================= */
+.scroller { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 18px; text-align: left; }
+th, td { padding: 13px 16px; vertical-align: top; border-bottom: 1px solid var(--line); }
+
+thead th {
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-3); background: var(--surface);
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
+}
+
+/* Tabel fakta: kolom kiri label, kolom kanan nilai apa adanya dari run. */
+.facts tbody th {
+  font-family: var(--mono); font-size: 14px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-3); width: 34%; white-space: nowrap;
+}
+.facts td { font-family: var(--mono); font-size: 18px; line-height: 1.5; word-break: break-word; }
+/* Satu kelas saja, BUKAN `.facts td .sub`. Aturan dwibahasa di atas berbunyi
+   `html[data-lang="en"] [data-l="id"]`, yang kekhususannya sama persis dengan
+   selektor tiga bagian itu — dan yang belakangan menang. Akibatnya kedua
+   bahasa tampil berbarengan. Jadi selektor apa pun yang mengatur `display`
+   pada elemen ber-data-l harus tetap di bawah kekhususan aturan dwibahasa. */
+.sub { display: block; font-family: var(--sans); font-size: 16px; color: var(--ink-3); margin-top: 5px; }
+.facts td a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+.hist td { font-family: var(--mono); font-size: 17px; white-space: nowrap; }
+.hist td a { color: var(--accent); }
+.hist tr.now td { background: var(--accent-bg); font-weight: 650; }
+
+.smoke td { font-family: var(--mono); font-size: 17px; }
+.smoke td.v { white-space: nowrap; }
+
+/* Hijau hanya berarti lolos. Itu sebabnya hijau tidak dipakai sebagai aksen
+   environment di halaman mana pun di situs ini. */
+.pass {
+  display: inline-block;
+  font-family: var(--mono); font-size: 14px; font-weight: 650;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--pass); background: var(--pass-bg);
+  border: 1px solid var(--pass); border-radius: 4px;
+  padding: 3px 9px; white-space: nowrap;
+}
+
+.big { font-family: var(--mono); font-size: 30px; font-weight: 650; color: var(--accent); }
+
+.links { display: flex; flex-wrap: wrap; gap: 12px; }
+.link {
+  font-family: var(--mono); font-size: 16px;
+  color: var(--ink); text-decoration: none;
+  border: 1px solid var(--line-2); border-radius: 5px;
+  padding: 10px 16px;
+}
+.link:hover { border-color: var(--ink-3); background: var(--surface); }
+.link:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+footer { padding-block: 36px 64px; border-top: 1px solid var(--line); }
+
+@media (max-width: 760px) {
+  body { font-size: 18px; }
+  .langfloat { top: 10px; right: 10px; }
+  .langbtn { font-size: 12px; padding: 6px 9px; }
+  h1 { font-size: 32px; }
+  .ver { font-size: 34px; }
+  h2 { font-size: 23px; }
+  .facts tbody th { width: auto; }
+  section { padding-block: 34px; }
+}
+</style>
+</head>
+<body>
+
+<div class="langfloat" role="group" aria-label="Language">
+  <button class="langbtn" type="button" data-lang="id" aria-pressed="false">ID</button>
+  <button class="langbtn" type="button" data-lang="en" aria-pressed="true">EN</button>
+</div>
+
+<main>
+
+<!-- ======================================================================
+     KEPALA + PANEL KEJUJURAN
+     Panel kejujuran ditaruh di sini, tinggi di halaman dan dengan ukuran
+     teks yang sama dengan isi lain. Bukan di footer kecil: kalimat ini
+     yang menjaga halaman ini tidak mengklaim lebih dari yang terjadi.
+     =================================================================== -->
+<section>
+  <div class="wrap stack">
+    <div>
+      <p class="eyebrow">
+        <span data-l="id">Hasil deployment &nbsp;&#183;&nbsp; Windows</span>
+        <span data-l="en">Deployment result &nbsp;&#183;&nbsp; Windows</span>
+      </p>
+      <span class="plat"><span class="mark" aria-hidden="true"></span>windows-latest &nbsp;&#183;&nbsp; IIS</span>
+    </div>
+
+    <h1>
+      <span data-l="id">Build 10, versi <span class="ver">1.0.10</span></span>
+      <span data-l="en">Build 10, version <span class="ver">1.0.10</span></span>
+    </h1>
+
+    <p class="lede">
+      <span data-l="id">IIS di windows-latest. Dua build dideploy, diverifikasi lewat HTTP, lalu dirollback ke build pertama dan diverifikasi lagi.</span>
+      <span data-l="en">IIS on windows-latest. Two builds deployed, verified over HTTP, then rolled back to the first build and verified again.</span>
+    </p>
+
+    <div class="panel">
+      <p data-l="id">
+        <strong>Halaman ini dilayani GitHub Pages, bukan IIS.</strong>
+        Yang dilakukan IIS ada di tempat lain: artifact-nya dibangun,
+        dideploy, dan diverifikasi di runner <code>windows-latest</code> dengan
+        IIS pada run <code>#10</code>, lalu hasilnya dipublish
+        ke sini sebagai bukti.
+      </p>
+      <p data-l="id">
+        Runner itu sendiri sudah dihancurkan begitu job-nya selesai. Jadi tidak ada
+        IIS yang masih hidup di belakang halaman ini, dan response
+        header-nya memang akan berbunyi GitHub. Angka-angka di bawah dibaca dari
+        keadaan nyata runner saat job masih jalan, bukan ditulis tangan.
+      </p>
+      <p data-l="en">
+        <strong>This page is served by GitHub Pages, not by IIS.</strong>
+        What IIS did happened elsewhere: the artifact was built, deployed
+        and verified on a <code>windows-latest</code> runner with IIS on
+        run <code>#10</code>, and the outcome was then published here as
+        evidence.
+      </p>
+      <p data-l="en">
+        That runner was destroyed the moment its job finished. So there is no live
+        IIS behind this page, and its response headers will indeed say
+        GitHub. The numbers below were read off the runner's real state while the job
+        was still running, not typed in by hand.
+      </p>
+    </div>
+
+    <a class="runlink" href="https://github.com/enggarranu/devops-workflow-demo/actions/runs/40154884039">
+      <span class="runlink-k">
+        <span data-l="id">Buka Actions run yang menghasilkan halaman ini &#8212; di situ semuanya bisa dicek ulang</span>
+        <span data-l="en">Open the Actions run that produced this page &#8212; everything here can be re-checked there</span>
+      </span>
+      <span class="runlink-v">run #10 &#8599;</span>
+    </a>
+  </div>
+</section>
+
+<!-- ======================================================================
+     FAKTA RUN
+     =================================================================== -->
+<section>
+  <div class="wrap stack">
+    <h2>
+      <span data-l="id">Apa yang terjadi di run ini</span>
+      <span data-l="en">What happened in this run</span>
+    </h2>
+
+    <div class="scroller">
+      <table class="facts">
+        <tbody>
+          <tr>
+            <th><span data-l="id">build id</span><span data-l="en">build id</span></th>
+            <td>10
+              <span class="sub" data-l="id">dari <code>github.run_number</code>, selalu naik, tanpa counter yang disimpan di repo</span>
+              <span class="sub" data-l="en">from <code>github.run_number</code>: always increasing, with no counter stored in the repo</span>
+            </td>
+          </tr>
+          <tr>
+            <th>version</th>
+            <td>1.0.10
+              <span class="sub" data-l="id">dirakit sebagai <code>1.0.&lt;run_number&gt;</code></span>
+              <span class="sub" data-l="en">composed as <code>1.0.&lt;run_number&gt;</code></span>
+            </td>
+          </tr>
+          <tr>
+            <th>platform</th>
+            <td>Windows &nbsp;&#183;&nbsp; IIS</td>
+          </tr>
+          <tr>
+            <th><span data-l="id">runner image</span><span data-l="en">runner image</span></th>
+            <td>windows-latest
+              <span class="sub">Microsoft Windows Server 2025 Datacenter &nbsp;&#183;&nbsp; Version 10.0</span>
+            </td>
+          </tr>
+          <tr>
+            <th>commit</th>
+            <td><a href="https://github.com/enggarranu/devops-workflow-demo/commit/6c51885f04d213a99036007f61bb21010b0726d6">6c51885 &#8599;</a>
+              <span class="sub">halaman hasil per jalur, dipublish ke GitHub Pages</span>
+            </td>
+          </tr>
+          <tr>
+            <th><span data-l="id">waktu deploy</span><span data-l="en">deploy time</span></th>
+            <td>2026-10-25 02:34:14 UTC
+              <span class="sub">2026-10-25 09:34:14 WIB</span>
+            </td>
+          </tr>
+          <tr>
+            <th><span data-l="id">metode deploy</span><span data-l="en">deploy method</span></th>
+            <td>physicalPath swap
+              <span class="sub" data-l="id">Set-ItemProperty &quot;IIS:\Sites\demo&quot; -Name physicalPath -Value &lt;rilis&gt;</span>
+              <span class="sub" data-l="en">Set-ItemProperty &quot;IIS:\Sites\demo&quot; -Name physicalPath -Value &lt;rilis&gt;</span>
+            </td>
+          </tr>
+          <tr>
+            <th>pointer</th>
+            <td>applicationHost.config -&gt; sites/site[@name=&#x27;demo&#x27;] @physicalPath
+              <span class="sub" data-l="id">atribut physicalPath di applicationHost.config</span>
+              <span class="sub" data-l="en">the physicalPath attribute in applicationHost.config</span>
+            </td>
+          </tr>
+          <tr>
+            <th><span data-l="id">release yang dideploy</span><span data-l="en">release deployed</span></th>
+            <td>C:\inetpub\demo\releases\0002
+              <span class="sub" data-l="id">dibuat oleh deploy terakhir di run ini, build <code>r10.1-v2</code></span>
+              <span class="sub" data-l="en">created by the last deploy in this run, build <code>r10.1-v2</code></span>
+            </td>
+          </tr>
+          <tr>
+            <th><span data-l="id">release yang aktif di akhir</span><span data-l="en">release active at the end</span></th>
+            <td>C:\inetpub\demo\releases\0001
+              <span class="sub" data-l="id">bukan nomor tertinggi, karena run ini diakhiri dengan rollback. Dibaca dari pointer-nya, tidak ditebak dari nomor rilis.</span>
+              <span class="sub" data-l="en">not the highest number, because this run ends with a rollback. Read from the pointer itself, never guessed from the release numbers.</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     SMOKE TEST
+     =================================================================== -->
+<section>
+  <div class="wrap stack">
+    <h2>
+      <span data-l="id">Smoke test</span>
+      <span data-l="en">Smoke tests</span>
+    </h2>
+    <p class="note">
+      <span data-l="id">
+        Diambil lewat HTTP dari <code>http://localhost:8080/</code> di runner, pakai
+        <code>Invoke-WebRequest -UseBasicParsing + .Contains()</code>. Tiap test gagal keras: kalau salah satu baris di
+        bawah tidak lolos, job-nya merah dan halaman ini tidak pernah terbit. Jadi
+        halaman ini ada artinya ketiganya lolos.
+      </span>
+      <span data-l="en">
+        Taken over HTTP from <code>http://localhost:8080/</code> on the runner, using
+        <code>Invoke-WebRequest -UseBasicParsing + .Contains()</code>. Each test fails hard: if any row below had not
+        passed, the job would be red and this page would never have been published. So
+        the page existing is what tells you all three passed.
+      </span>
+    </p>
+
+    <div class="scroller">
+      <table class="smoke">
+        <thead>
+          <tr>
+            <th>stage</th>
+            <th><span data-l="id">yang diuji</span><span data-l="en">what is checked</span></th>
+            <th><span data-l="id">harus memuat</span><span data-l="en">must contain</span></th>
+            <th><span data-l="id">harus tidak memuat</span><span data-l="en">must not contain</span></th>
+            <th><span data-l="id">hasil</span><span data-l="en">result</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="v">5</td>
+            <td><span data-l="id">rilis pertama dilayani</span><span data-l="en">the first release is served</span></td>
+            <td class="v">r10.1-v1</td>
+            <td class="v">&#8212;</td>
+            <td><span class="pass"><span data-l="id">lolos</span><span data-l="en">pass</span></span></td>
+          </tr>
+          <tr>
+            <td class="v">5b</td>
+            <td><span data-l="id">rilis kedua menggantikan yang pertama</span><span data-l="en">the second release replaced the first</span></td>
+            <td class="v">r10.1-v2</td>
+            <td class="v">r10.1-v1</td>
+            <td><span class="pass"><span data-l="id">lolos</span><span data-l="en">pass</span></span></td>
+          </tr>
+          <tr>
+            <td class="v">5c</td>
+            <td><span data-l="id">setelah rollback, rilis pertama kembali dilayani</span><span data-l="en">after rollback, the first release is served again</span></td>
+            <td class="v">r10.1-v1</td>
+            <td class="v">r10.1-v2</td>
+            <td><span class="pass"><span data-l="id">lolos</span><span data-l="en">pass</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     ROLLBACK
+     =================================================================== -->
+<section>
+  <div class="wrap stack">
+    <h2>
+      <span data-l="id">Rollback, diuji di run ini</span>
+      <span data-l="en">Rollback, exercised in this run</span>
+    </h2>
+    <p class="note">
+      <span data-l="id">
+        Rollback bukan script yang cuma ada di repo. Tiap run mendeploy dua build,
+        lalu rollback ke build pertama, lalu membuktikan lewat HTTP bahwa build
+        pertama benar-benar dilayani kembali.
+      </span>
+      <span data-l="en">
+        Rollback is not a script that merely exists in the repo. Every run deploys two
+        builds, rolls back to the first one, then proves over HTTP that the first build
+        really is being served again.
+      </span>
+    </p>
+
+    <div class="panel">
+      <p data-l="id">
+        Dirollback dari build <code>r10.1-v2</code> ke build <code>r10.1-v1</code>,
+        yaitu <code>C:\inetpub\demo\releases\0001</code>.
+      </p>
+      <p data-l="en">
+        Rolled back from build <code>r10.1-v2</code> to build <code>r10.1-v1</code>,
+        which is <code>C:\inetpub\demo\releases\0001</code>.
+      </p>
+      <p>
+        <span class="big">443 ms</span>
+        &nbsp;
+        <span data-l="id">waktu jalan script rollback di runner, dua operasi</span>
+        <span data-l="en">wall time of the rollback script on the runner, two operations</span>
+      </p>
+      <p class="note" data-l="id">
+        Di Windows ada satu operasi lagi setelah pointer berganti, yaitu Restart-WebAppPool, dan operasi itulah yang membuat angka di atas jauh lebih besar daripada di Linux. Untuk site static seperti ini sebagian besar nilainya jaga-jaga: stage 7 di halaman utama menunjukkan perubahan isi sudah terlihat pada request pertama. Angka ini waktu jalan di runner GitHub, bukan janji
+        SLA: ukurannya berguna untuk membandingkan dua jalur di halaman ini, bukan
+        untuk dipakai sebagai target.
+      </p>
+      <p class="note" data-l="en">
+        On Windows there is one more operation after the pointer moves, Restart-WebAppPool, and that operation is what makes the number above far larger than on Linux. For a static site like this one, most of its value is precaution: stage 7 on the main page shows a content change is already visible on the first request. This number is wall time on a GitHub runner, not an SLA
+        promise: it is useful for comparing the two paths on this page, not as a target.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     RIWAYAT
+     =================================================================== -->
+<section>
+  <div class="wrap stack">
+    <h2>
+      <span data-l="id">Sepuluh build terakhir di jalur ini</span>
+      <span data-l="en">Last ten builds on this path</span>
+    </h2>
+    <p class="note">
+      <span data-l="id">
+        Dibaca dari <code>docs/result/history.json</code>, yang diperbarui job
+        <code>publish</code> tiap run. Baris paling atas adalah run yang menghasilkan
+        halaman ini.
+      </span>
+      <span data-l="en">
+        Read from <code>docs/result/history.json</code>, which the <code>publish</code>
+        job updates on every run. The top row is the run that produced this page.
+      </span>
+    </p>
+
+    <div class="scroller">
+      <table class="hist">
+        <thead>
+          <tr>
+            <th>build</th>
+            <th>version</th>
+            <th>commit</th>
+            <th><span data-l="id">waktu (WIB)</span><span data-l="en">time (WIB)</span></th>
+            <th><span data-l="id">rollback</span><span data-l="en">rollback</span></th>
+            <th>run</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="now">
+            <td>10</td>
+            <td>1.0.10</td>
+            <td><a href="https://github.com/enggarranu/devops-workflow-demo/commit/6c51885f04d213a99036007f61bb21010b0726d6">6c51885</a></td>
+            <td>2026-10-25 09:34:14</td>
+            <td>443 ms</td>
+            <td><a href="https://github.com/enggarranu/devops-workflow-demo/actions/runs/40154884039">#10 &#8599;</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     NAVIGASI
+     =================================================================== -->
+<section>
+  <div class="wrap stack">
+    <div class="links">
+      <a class="link" href="https://github.com/enggarranu/devops-workflow-demo/actions/runs/40154884039">
+        <span data-l="id">Actions run #10 &#8599;</span>
+        <span data-l="en">Actions run #10 &#8599;</span>
+      </a>
+      <a class="link" href="https://github.com/enggarranu/devops-workflow-demo/commit/6c51885f04d213a99036007f61bb21010b0726d6">commit 6c51885 &#8599;</a>
+      <a class="link" href="../linux/">
+        <span data-l="id">jalur Linux &#8594;</span>
+        <span data-l="en">Linux path &#8594;</span>
+      </a>
+      <a class="link" href="../../">
+        <span data-l="id">&#8592; halaman utama</span>
+        <span data-l="en">&#8592; main page</span>
+      </a>
+      <a class="link" href="https://github.com/enggarranu/devops-workflow-demo">repo &#8599;</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap stack">
+    <p class="note" data-l="id">
+      Halaman ini dirakit otomatis oleh job <code>publish</code> dari
+      <code>publish/template.html</code> dan metadata JSON yang ditulis job
+      <code>windows</code> pada run <code>#10</code>. Tanpa
+      dependensi: CSS dan JS inline, tanpa CDN, tanpa font eksternal.
+    </p>
+    <p class="note" data-l="en">
+      This page was assembled automatically by the <code>publish</code> job from
+      <code>publish/template.html</code> and the JSON metadata written by the
+      <code>windows</code> job on run <code>#10</code>. No
+      dependencies: inline CSS and JS, no CDN, no external fonts.
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* Bahasa. Isi kedua bahasa sudah ada di markup dan disembunyikan lewat CSS,
+     jadi script ini cuma membalik satu atribut. Kuncinya sama dengan halaman
+     utama, supaya pilihan bahasa ikut terbawa antar halaman. */
+  var root = document.documentElement;
+  var TITLES = { id: "Hasil Windows 1.0.10", en: "Windows result 1.0.10" };
+  var buttons = document.querySelectorAll(".langbtn[data-lang]");
+
+  function setLang(lang) {
+    if (lang !== "id" && lang !== "en") { lang = "en"; }
+    root.setAttribute("data-lang", lang);
+    root.setAttribute("lang", lang);
+    document.title = TITLES[lang];
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute(
+        "aria-pressed",
+        buttons[i].getAttribute("data-lang") === lang ? "true" : "false");
+    }
+    try { localStorage.setItem("dwd-lang", lang); } catch (e) { /* file:// atau privat */ }
+  }
+
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].addEventListener("click", function () {
+      setLang(this.getAttribute("data-lang"));
+    });
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem("dwd-lang"); } catch (e) { /* abaikan */ }
+  setLang(saved || "en");
+})();
+</script>
+</body>
+</html>

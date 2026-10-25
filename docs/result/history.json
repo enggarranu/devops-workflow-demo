@@ -1,0 +1,28 @@
+{
+  "linux": [
+    {
+      "build_id": "10",
+      "version": "1.0.10",
+      "run_number": "10",
+      "run_url": "https://github.com/enggarranu/devops-workflow-demo/actions/runs/40154884039",
+      "commit_short": "6c51885",
+      "commit_url": "https://github.com/enggarranu/devops-workflow-demo/commit/6c51885f04d213a99036007f61bb21010b0726d6",
+      "deployed_at_utc": "2026-10-25T02:33:26Z",
+      "rollback_ms": 27,
+      "release_active": "/var/www/demo/releases/0001"
+    }
+  ],
+  "windows": [
+    {
+      "build_id": "10",
+      "version": "1.0.10",
+      "run_number": "10",
+      "run_url": "https://github.com/enggarranu/devops-workflow-demo/actions/runs/40154884039",
+      "commit_short": "6c51885",
+      "commit_url": "https://github.com/enggarranu/devops-workflow-demo/commit/6c51885f04d213a99036007f61bb21010b0726d6",
+      "deployed_at_utc": "2026-10-25T02:34:14Z",
+      "rollback_ms": 443,
+      "release_active": "C:\\inetpub\\demo\\releases\\0001"
+    }
+  ]
+}
