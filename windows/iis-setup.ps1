@@ -79,6 +79,7 @@ foreach ($svc in @('WAS', 'W3SVC')) {
 }
 
 Import-Module WebAdministration
+. (Join-Path $PSScriptRoot 'iis-path.ps1')   # Get-SitePhysicalPath
 
 # --- 3. Siapkan struktur direktori ----------------------------------------------
 # bootstrap adalah physicalPath awal site, dipakai hanya sampai deploy pertama
@@ -145,4 +146,4 @@ $binding = $site.Bindings.Collection | Where-Object { $_.bindingInformation -lik
 if (-not $binding)                { throw "site $SiteName tidak punya binding di port $Port" }
 
 Write-Host "==> IIS siap: site '$SiteName' jalan di port $Port"
-Write-Host "    physicalPath saat ini: $((Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath).Value)"
+Write-Host "    physicalPath saat ini: $(Get-SitePhysicalPath -SiteName $SiteName)"

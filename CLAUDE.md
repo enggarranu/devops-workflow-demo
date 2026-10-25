@@ -52,9 +52,10 @@ Klaim itu dipecah jadi dua di stage 7, karena hanya satu bagiannya yang determin
   dengan `FileShare.None` memblokir penulisan dan penghapusan; `rm` di Linux pada file
   yang file descriptor-nya masih dipegang selalu berhasil. Ini diassert di CI.
 - Lewat IIS untuk konten static, lock itu biasanya TIDAK terlihat: IIS tidak memegang
-  handle eksklusif, jadi menimpa file yang sedang dilayani umumnya berhasil. Yang muncul
-  masalah lain, yaitu response masih isi lama karena cache http.sys. Ini dilaporkan apa
-  adanya, tidak diassert.
+  handle eksklusif, jadi menimpa file yang sedang dilayani umumnya berhasil. Apakah
+  response berikutnya langsung berubah, itu dilaporkan apa adanya tanpa ditebak
+  sebabnya, dan tidak diassert. Jangan menulis sebab (misalnya cache http.sys) di
+  website sebelum ada bukti di log yang menunjuk ke sebab itu.
 
 `app_offline.htm` sengaja tidak dipakai. File itu hanya dihormati handler ASP.NET dan
 ASP.NET Core Module, bukan static file handler IIS, jadi untuk site static HTML seperti

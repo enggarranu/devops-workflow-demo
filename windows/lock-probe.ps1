@@ -34,6 +34,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Import-Module WebAdministration
+. (Join-Path $PSScriptRoot 'iis-path.ps1')   # Get-SitePhysicalPath
 
 $url  = "http://localhost:$Port/"
 $rows = @()   # dikumpulkan sebagai baris tabel markdown, ditulis sekali di akhir
@@ -45,34 +46,18 @@ Write-Host '=============================================='
 # ---------------------------------------------------------------------------------
 # Eksperimen A: timpa file yang sedang dilayani IIS
 # ---------------------------------------------------------------------------------
-# Write-Host ''
-# Write-Host '--- A: timpa index.html yang sedang dilayani IIS ---'
-
-# $activePath = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath).Value
-# $target     = Join-Path $activePath 'index.html'
-
 # --- A: timpa index.html yang sedang dilayani IIS ---
 Write-Host ''
 Write-Host '--- A: timpa index.html yang sedang dilayani IIS ---'
 
-$activePath = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath -ErrorAction SilentlyContinue).Value
-
-# Fallback: jika physicalPath IIS kosong atau tidak valid, ambil rilis terakhir di disk
-if (-not $activePath -or -not (Test-Path $activePath)) {
-    $releasesDir = Join-Path $Root 'releases'
-    $latestRelease = Get-ChildItem -Path $releasesDir -Directory -ErrorAction SilentlyContinue |
-                     Where-Object { $_.Name -match '^\d+$' } |
-                     Sort-Object { [int]$_.Name } |
-                     Select-Object -Last 1
-    
-    if ($latestRelease) {
-        $activePath = $latestRelease.FullName
-    } else {
-        $activePath = $Root
-    }
-}
-
-$target = Join-Path $activePath 'index.html'
+# Ini HARUS folder yang benar-benar dilayani IIS saat ini, bukan tebakan. Versi
+# sebelumnya menebak "rilis bernomor tertinggi" kalau pembacaan pointer gagal, dan
+# karena stage 6 sudah rollback ke rilis sebelumnya, tebakan itu menimpa folder yang
+# TIDAK sedang dilayani. Response-nya lalu tidak berubah, dan itu salah dibaca sebagai
+# bukti cache http.sys. Tebakannya dihapus; pembacaannya yang dibenarkan.
+$activePath = Get-SitePhysicalPath -SiteName $SiteName
+$target     = Join-Path $activePath 'index.html'
+Write-Host "folder yang sedang dilayani: $activePath"
 
 # Minta satu request dulu, supaya file benar-benar sudah pernah dibuka IIS dan bukan
 # file yang belum tersentuh. Tanpa langkah ini eksperimennya tidak menguji apa pun.

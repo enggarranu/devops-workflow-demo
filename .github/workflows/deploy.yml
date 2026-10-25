@@ -243,10 +243,12 @@ jobs:
         if: always()
         run: |
           Import-Module WebAdministration -ErrorAction SilentlyContinue
-          $active = try {
-            $site = Get-ItemProperty "IIS:\Sites\$env:SITE_NAME" -ErrorAction SilentlyContinue -Name physicalPath
-            if ($site) { $site.Value } else { '?' }
-          } catch { '?' }
+          . .\windows\iis-path.ps1
+
+          # Baris ini yang paling sering dibaca orang di halaman run, jadi dia harus
+          # menampilkan path sungguhan. Sebelumnya menampilkan kosong, karena memakai
+          # pembacaan yang sama rusaknya seperti di script-script lain.
+          $active = try { Get-SitePhysicalPath -SiteName $env:SITE_NAME } catch { "? ($($_.Exception.Message))" }
 
           $lines = @()
           $lines += '## Windows - IIS di windows-latest'

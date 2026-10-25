@@ -24,6 +24,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Import-Module WebAdministration
+. (Join-Path $PSScriptRoot 'iis-path.ps1')   # Get-SitePhysicalPath
 
 $previous = Join-Path $Root 'previous.txt'
 
@@ -45,7 +46,7 @@ if (-not (Test-Path $target)) {
     throw "rilis tujuan rollback tidak ada di disk: $target"
 }
 
-$current = (Get-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath).Value
+$current = Get-SitePhysicalPath -SiteName $SiteName
 Write-Host "==> rollback dari $current"
 Write-Host "               ke $target"
 

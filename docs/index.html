@@ -608,8 +608,8 @@ footer { padding-block: 48px 72px; border-top: 1px solid var(--line); }
                   <rect class="d-box d-box-win" rx="1" x="596" y="274" width="404" height="70"/>
                   <text class="d-cmd d-cmd-win" x="616" y="302" data-l="id">DISM: nyalakan fitur IIS</text>
                   <text class="d-cmd d-cmd-win" x="616" y="302" data-l="en">DISM: enable IIS features</text>
-                  <text class="d-sub" x="616" y="326" data-l="id">tidak ada di image, 1&ndash;3 menit</text>
-                  <text class="d-sub" x="616" y="326" data-l="en">not in the image, 1&ndash;3 minutes</text>
+                  <text class="d-sub" x="616" y="326" data-l="id">3 dari 7 fitur menyala, ~27 detik</text>
+                  <text class="d-sub" x="616" y="326" data-l="en">3 of 7 features enabled, ~27s</text>
                   <path class="d-flow-win" d="M 798 344 L 798 372" marker-end="url(#ar-win)"/>
                 </g>
               </g>
@@ -861,16 +861,18 @@ jobs:
         </summary>
         <div class="s-body">
           <p class="s-why" data-l="id">
-            Beda biaya yang nyata. nginx terpasang dalam hitungan detik. IIS tidak ada di
-            image <code>windows-latest</code> dan harus dinyalakan sebagai Windows optional
-            feature, satu sampai tiga menit, dan itu langkah paling lambat di seluruh
-            pipeline.
+            Beda biaya yang nyata, walau tidak sebesar yang biasa diduga. nginx tidak ada
+            di image dan harus dipasang. IIS sebagian sudah ada: di run terakhir, 4 dari 7
+            fitur sudah menyala dan hanya 3 yang perlu dinyalakan sebagai Windows optional
+            feature. Tetap jadi langkah terlama di job Windows, tapi sekitar 27 detik, bukan
+            hitungan menit.
           </p>
           <p class="s-why" data-l="en">
-            A real difference in cost. nginx installs in seconds. IIS is not present in the
-            <code>windows-latest</code> image and has to be enabled as a Windows optional
-            feature &mdash; one to three minutes, and the slowest step in the entire
-            pipeline.
+            A real difference in cost, though smaller than usually assumed. nginx is absent
+            from the image and must be installed. IIS is partly there already: on the last
+            run, 4 of its 7 features were enabled and only 3 had to be turned on as Windows
+            optional features. Still the longest step in the Windows job, but around 27
+            seconds, not minutes.
           </p>
           <div class="pair">
             <div class="cmd cmd-lin">
@@ -977,8 +979,9 @@ New-Website -Name demo -Port 8080 `
 
 <span class="c"># cap build id, supaya tiap rilis bisa</span>
 <span class="c"># dibedakan dari luar lewat HTTP</span>
-sed -i "s/__BUILD_ID__/${BUILD_ID}/g" \
-  "$RELEASE_DIR"/*.html
+find "$RELEASE_DIR" -type f -name '*.html' -print0 \
+  | xargs -0 --no-run-if-empty \
+      sed -i "s/__BUILD_ID__/${BUILD_ID}/g"
 
 <span class="c"># catat tujuan rollback sebelum swap</span>
 readlink -f "$CURRENT" &gt; "$PREVIOUS"
@@ -992,8 +995,9 @@ mv -T "$CURRENT.tmp" "$CURRENT"</pre>
 
 <span class="c"># stamp the build id, so each release can be</span>
 <span class="c"># told apart from the outside over HTTP</span>
-sed -i "s/__BUILD_ID__/${BUILD_ID}/g" \
-  "$RELEASE_DIR"/*.html
+find "$RELEASE_DIR" -type f -name '*.html' -print0 \
+  | xargs -0 --no-run-if-empty \
+      sed -i "s/__BUILD_ID__/${BUILD_ID}/g"
 
 <span class="c"># record the rollback target before swapping</span>
 readlink -f "$CURRENT" &gt; "$PREVIOUS"
@@ -1014,6 +1018,8 @@ mv -T "$CURRENT.tmp" "$CURRENT"</pre>
 icacls.exe $releaseDir `
   /grant 'IIS_IUSRS:(OI)(CI)(RX)' /T /C /Q
 
+<span class="c"># baca pointer yang SEDANG aktif, jangan ditebak</span>
+$activePath = Get-SitePhysicalPath -SiteName demo
 Set-Content -Path $previous -Value $activePath
 
 <span class="c"># satu atribut di applicationHost.config.</span>
@@ -1031,6 +1037,8 @@ Restart-WebAppPool -Name demo</pre>
 icacls.exe $releaseDir `
   /grant 'IIS_IUSRS:(OI)(CI)(RX)' /T /C /Q
 
+<span class="c"># read the pointer that IS active, never guess</span>
+$activePath = Get-SitePhysicalPath -SiteName demo
 Set-Content -Path $previous -Value $activePath
 
 <span class="c"># one attribute in applicationHost.config.</span>
@@ -1122,15 +1130,15 @@ $r.Content.Contains($MustNotContain)</pre>
           </div>
           <p class="note" data-l="id">
             Kedua sisi mencoba lima kali dengan jeda dua detik sebelum gagal keras. Bukan
-            kosmetik: setelah pointer berganti, cache http.sys di Windows bisa masih
-            melayani isi lama beberapa saat. Tanpa retry, pipeline-nya flaky, dan
+            kosmetik: di Windows, app pool baru saja di-recycle dan worker process yang
+            baru belum tentu langsung siap melayani. Tanpa retry, pipeline-nya flaky, dan
             flaky-nya muncul tepat saat demo.
           </p>
           <p class="note" data-l="en">
             Both sides retry five times with a two-second gap before failing hard. Not
-            cosmetic: after the pointer moves, the http.sys cache on Windows can keep
-            serving the old content for a moment. Without retries the pipeline is flaky,
-            and the flakiness shows up exactly during a demo.
+            cosmetic: on Windows the app pool has just been recycled, and the fresh worker
+            process is not necessarily ready to serve straight away. Without retries the
+            pipeline is flaky, and the flakiness shows up exactly during a demo.
           </p>
         </div>
       </details>
@@ -1264,20 +1272,20 @@ $stream = [System.IO.File]::Open($held,
           </div>
           <p class="note" data-l="id">
             Eksperimen di atas diassert: kalau hasilnya tidak sesuai, job-nya merah.
-            Eksperimen keduanya tidak &mdash; menimpa <code>index.html</code> yang sedang
+            Eksperimen satunya tidak &mdash; menimpa <code>index.html</code> yang sedang
             dilayani IIS justru <em>biasanya berhasil</em>, karena IIS tidak memegang
-            handle eksklusif atas file static. Yang muncul masalah lain: response bisa
-            masih berisi isi lama karena cache http.sys. Hasilnya dilaporkan apa adanya ke
-            step summary, tidak diassert, karena bergantung pada image runner.
+            handle eksklusif atas file static. Apakah response berikutnya langsung berubah
+            atau tidak, itu dilaporkan apa adanya ke step summary tanpa ditebak sebabnya.
+            Halaman ini tidak menyebut penyebabnya sampai ada bukti yang menunjuk ke satu
+            sebab tertentu.
           </p>
           <p class="note" data-l="en">
             The experiment above is asserted: if the result differs, the job goes red. The
             other experiment is not &mdash; overwriting the <code>index.html</code> that
             IIS is currently serving <em>usually succeeds</em>, because IIS holds no
-            exclusive handle on static files. What shows up instead is a different problem:
-            the response may still carry the old content because of the http.sys cache.
-            That result is reported as observed into the step summary rather than asserted,
-            because it depends on the runner image.
+            exclusive handle on static files. Whether the next response changes immediately
+            is reported as observed into the step summary, with no cause attached. This
+            page does not name a cause until there is evidence pointing at one.
           </p>
         </div>
       </details>
@@ -1326,8 +1334,8 @@ $stream = [System.IO.File]::Open($held,
             </td>
             <td class="cell-win">
               Enable-WindowsOptionalFeature
-              <span class="cell-cost" data-l="id">1&ndash;3 menit, tidak ada di image runner</span>
-              <span class="cell-cost" data-l="en">1&ndash;3 minutes, absent from the runner image</span>
+              <span class="cell-cost" data-l="id">~27 detik, 3 dari 7 fitur perlu dinyalakan</span>
+              <span class="cell-cost" data-l="en">~27s, 3 of 7 features need enabling</span>
             </td>
           </tr>
           <tr>
@@ -1513,8 +1521,8 @@ $stream = [System.IO.File]::Open($held,
   <div class="wrap stack">
     <div>
       <p class="eyebrow"><span data-l="id">05 &nbsp;Repo</span><span data-l="en">05 &nbsp;Repo</span></p>
-      <h2 data-l="id">Bisa dijalankan sendiri dalam dua perintah.</h2>
-      <h2 data-l="en">You can run it yourself in two commands.</h2>
+      <h2 data-l="id">Bisa dijalankan sendiri tanpa menyiapkan apa pun.</h2>
+      <h2 data-l="en">You can run it yourself with nothing to set up.</h2>
     </div>
 
     <pre class="tree" data-l="id">devops-workflow-demo/
@@ -1565,13 +1573,13 @@ git push</pre>
 
     <p data-l="id">
       Tidak ada secret, variable, atau self-hosted runner yang perlu disiapkan. Dua job
-      jalan paralel; yang Linux selesai sekitar satu menit, yang Windows empat sampai
-      enam menit karena harus menyalakan IIS lebih dulu.
+      jalan paralel dan dua-duanya selesai di bawah semenit: Linux sekitar 22 detik,
+      Windows sekitar 63 detik karena masih harus menyalakan sebagian fitur IIS.
     </p>
     <p data-l="en">
-      No secrets, variables, or self-hosted runners to set up. Two jobs run in parallel;
-      the Linux one finishes in about a minute, the Windows one in four to six because it
-      has to enable IIS first.
+      No secrets, variables, or self-hosted runners to set up. Two jobs run in parallel
+      and both finish in under a minute: Linux in about 22 seconds, Windows in about 63
+      because it still has to enable part of IIS first.
     </p>
 
     <div class="links">
