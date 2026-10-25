@@ -32,6 +32,12 @@ env:
   # rollback punya tujuan nyata dan bukan cuma dipanggil untuk pamer.
   BUILD_V1: r${{ github.run_number }}.${{ github.run_attempt }}-v1
   BUILD_V2: r${{ github.run_number }}.${{ github.run_attempt }}-v2
+  # Identitas build yang dipakai halaman hasil. run_number naik sendiri dan tidak
+  # pernah turun, jadi tidak perlu counter manual maupun file state di repo. Satu
+  # re-run memakai run_number yang sama, dan itu memang benar: yang berubah cuma
+  # run_attempt, bukan build-nya.
+  BUILD_ID: ${{ github.run_number }}
+  VERSION: 1.0.${{ github.run_number }}
 
 jobs:
   # ===================================================================================
@@ -98,7 +104,12 @@ jobs:
 
       # --- Stage 4b: deploy rilis kedua --------------------------------------------
       - name: "Stage 4b — Deploy rilis kedua"
-        run: sudo linux/deploy.sh "$BUILD_V2" app.tar.gz
+        run: |
+          # Cap waktu dicatat di sini, bukan di akhir job: inilah saat rilis yang
+          # jadi hasil run ini mulai dilayani. Dipakai halaman hasil, ditampilkan
+          # dalam UTC dan WIB.
+          echo "DEPLOY_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          sudo linux/deploy.sh "$BUILD_V2" app.tar.gz
 
       - name: "Stage 5b — Smoke test rilis kedua"
         # Argumen ketiga mengassert build pertama sudah TIDAK dilayani. Tanpa itu, test
@@ -107,7 +118,14 @@ jobs:
 
       # --- Stage 6: rollback -------------------------------------------------------
       - name: "Stage 6 — Rollback"
-        run: sudo linux/rollback.sh
+        run: |
+          # Durasinya diukur di sini, bukan di dalam rollback.sh. Script rollback
+          # harus tetap bisa dijalankan sendiri di luar CI tanpa ikut memikul
+          # urusan pelaporan.
+          start="$(date +%s%N)"
+          sudo linux/rollback.sh
+          end="$(date +%s%N)"
+          echo "ROLLBACK_MS=$(( (end - start) / 1000000 ))" >> "$GITHUB_ENV"
 
       - name: "Stage 5c — Smoke test setelah rollback"
         # Inilah step yang membuktikan rollback benar-benar bekerja, bukan sekadar ada.
@@ -118,6 +136,20 @@ jobs:
         # Path step summary dikirim sebagai argumen, karena sudo mereset environment
         # dan script ini harus jalan sebagai root untuk menulis ke folder rilis.
         run: sudo linux/lock-probe.sh "$APP_PORT" "$GITHUB_STEP_SUMMARY"
+
+      # --- Hasil run sebagai metadata ----------------------------------------------
+      # Sengaja TANPA `if:`, jadi step ini hanya jalan kalau semua step di atas
+      # lolos. Itu yang membuat halaman hasil tidak pernah terbit untuk run yang
+      # gagal, dan yang membuat tulisan "lolos" di halaman itu punya arti.
+      - name: Catat hasil run sebagai metadata
+        run: linux/write-result.sh result-linux.json
+
+      - name: Unggah metadata hasil run
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-linux
+          path: result-linux.json
+          retention-days: 7
 
       # --- Ringkasan ---------------------------------------------------------------
       - name: Ringkasan
@@ -211,6 +243,16 @@ jobs:
       # --- Stage 4b: deploy rilis kedua --------------------------------------------
       - name: "Stage 4b — Deploy rilis kedua"
         run: |
+          # Padanan dari sisi Linux. 'Z' disambung sebagai string, bukan ditaruh di
+          # dalam pola format, karena di .NET huruf di dalam pola format custom
+          # diperlakukan sebagai penanda dan bukan sebagai huruf biasa.
+          $stamp = [datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss') + 'Z'
+
+          # Add-Content -Encoding ASCII, BUKAN Out-File -Encoding utf8. Di Windows
+          # PowerShell 5.1, utf8 berarti utf8 BER-BOM, dan BOM yang nyelip di
+          # tengah file GITHUB_ENV merusak nama variabel di baris itu.
+          Add-Content -Path $env:GITHUB_ENV -Value "DEPLOY_AT=$stamp" -Encoding ASCII
+
           .\windows\deploy.ps1 `
             -BuildId $env:BUILD_V2 `
             -PackagePath app.zip `
@@ -225,7 +267,16 @@ jobs:
 
       # --- Stage 6: rollback -------------------------------------------------------
       - name: "Stage 6 — Rollback"
-        run: .\windows\rollback.ps1 -SiteName $env:SITE_NAME
+        run: |
+          # Diukur dari luar script, sama seperti di sisi Linux. Angka ini memang
+          # akan jauh lebih besar daripada Linux, dan itu bukan kekurangan
+          # pengukuran: Restart-WebAppPool ikut terhitung, karena di Windows
+          # rollback belum selesai tanpa langkah itu.
+          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+          .\windows\rollback.ps1 -SiteName $env:SITE_NAME
+          $sw.Stop()
+          Add-Content -Path $env:GITHUB_ENV `
+            -Value "ROLLBACK_MS=$([int]$sw.Elapsed.TotalMilliseconds)" -Encoding ASCII
 
       - name: "Stage 5c — Smoke test setelah rollback"
         run: |
@@ -237,6 +288,20 @@ jobs:
       # --- Stage 7: lock probe -----------------------------------------------------
       - name: "Stage 7 — Lock probe"
         run: .\windows\lock-probe.ps1 -Port $env:APP_PORT -SiteName $env:SITE_NAME
+
+      # --- Hasil run sebagai metadata ----------------------------------------------
+      - name: Catat hasil run sebagai metadata
+        run: |
+          .\windows\write-result.ps1 `
+            -OutFile result-windows.json `
+            -SiteName $env:SITE_NAME
+
+      - name: Unggah metadata hasil run
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-windows
+          path: result-windows.json
+          retention-days: 7
 
       # --- Ringkasan ---------------------------------------------------------------
       - name: Ringkasan
@@ -272,3 +337,67 @@ jobs:
           $lines += '```'
 
           $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+  # ===================================================================================
+  # PUBLISH
+  # ===================================================================================
+  # Job linux dan windows jalan paralel. Kalau dua-duanya menulis ke repo, push-nya
+  # akan bentrok dan yang kalah ditolak. Jadi penulisan ke repo dikumpulkan di satu
+  # job yang jalan setelah keduanya selesai: dua job itu hanya mengunggah metadata
+  # sebagai artifact, job inilah satu-satunya yang menyentuh git.
+  publish:
+    name: Publish halaman hasil ke GitHub Pages
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Hanya dari main. Pages repo ini dilayani dari main/docs, jadi commit otomatis
+    # ke branch lain tidak ada gunanya sekaligus jadi kejutan yang tidak diminta.
+    if: github.ref == 'refs/heads/main'
+
+    # Satu-satunya job di workflow ini yang menulis ke repo. Dua job di atas tetap
+    # read-only, dan izin tulis ini tidak ikut bocor ke sana.
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Nama branch-nya, bukan SHA pemicu. Checkout bawaan menghasilkan HEAD
+          # yang detached, dan dari situ tidak ada branch untuk di-push.
+          ref: ${{ github.ref_name }}
+          # Riwayat utuh, karena `git pull --rebase` di atas clone shallow bisa
+          # gagal dengan cara yang membingungkan.
+          fetch-depth: 0
+
+      - name: Unduh metadata dari kedua job
+        uses: actions/download-artifact@v4
+        with:
+          # Hanya artifact hasil, bukan paket aplikasinya. merge-multiple
+          # menaruh keduanya di satu folder; namanya sudah berbeda, jadi tidak
+          # ada yang saling menimpa.
+          pattern: result-*
+          path: hasil
+          merge-multiple: true
+
+      - name: Rakit halaman hasil, commit, push
+        run: publish/push-result.sh hasil "${{ github.ref_name }}"
+
+      - name: Ringkasan
+        if: always()
+        run: |
+          # URL-nya dirakit dari nama repo, bukan ditulis tetap, supaya tetap benar
+          # kalau repo ini di-fork atau ganti nama.
+          base="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          {
+            echo "## Halaman hasil"
+            echo
+            echo "| Jalur | URL |"
+            echo "| --- | --- |"
+            echo "| Linux | ${base}/result/linux/ |"
+            echo "| Windows | ${base}/result/windows/ |"
+            echo
+            echo "Build \`${BUILD_ID}\`, versi \`${VERSION}\`."
+            echo
+            echo "GitHub Pages butuh sekitar satu menit untuk menerbitkan commit ini."
+          } >> "$GITHUB_STEP_SUMMARY"

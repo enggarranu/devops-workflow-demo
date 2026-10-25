@@ -415,7 +415,9 @@ td.cell-win { background: var(--windows-bg); }
 .cell-cost { font-family: var(--mono); font-size: 15px; color: var(--ink-3); display: block; margin-top: 5px; }
 
 html[data-env="linux"]   .th-win, html[data-env="linux"]   .cell-win,
-html[data-env="windows"] .th-lin, html[data-env="windows"] .cell-lin { display: none; }
+html[data-env="windows"] .th-lin, html[data-env="windows"] .cell-lin,
+html[data-env="linux"]   .link-win,
+html[data-env="windows"] .link-lin { display: none; }
 
 /* ============================================================================
    BAGIAN 6 — REPO
@@ -445,6 +447,19 @@ html[data-env="windows"] .th-lin, html[data-env="windows"] .cell-lin { display: 
 }
 .link:hover { border-color: var(--ink-3); background: var(--surface); }
 .link:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Link ke halaman hasil membawa warna lane-nya, sama seperti di tabel dan di
+   diagram, supaya tujuannya terbaca sebelum teksnya dibaca. Aturan hover-nya
+   ditulis ulang karena .link:hover punya kekhususan yang sama dan akan
+   mengembalikan latar netral kalau dibiarkan. */
+/* inline-flex, supaya penanda bentuk di dalamnya punya ukuran. Anchor biasa
+   itu inline, dan span ber-width di dalam elemen inline tidak terbentuk. */
+.link-lin, .link-win { display: inline-flex; align-items: center; gap: 9px; }
+.link-lin .mark, .link-win .mark { background: currentColor; }
+.link-lin { color: var(--linux);   border-color: var(--linux);   background: var(--linux-bg);   }
+.link-win { color: var(--windows); border-color: var(--windows); background: var(--windows-bg); }
+.link-lin:hover { border-color: var(--linux);   background: var(--linux-bg);   }
+.link-win:hover { border-color: var(--windows); background: var(--windows-bg); }
 
 footer { padding-block: 48px 72px; border-top: 1px solid var(--line); }
 
@@ -1525,38 +1540,48 @@ $stream = [System.IO.File]::Open($held,
     </div>
 
     <pre class="tree" data-l="id">devops-workflow-demo/
-&#9500;&#9472; .github/workflows/deploy.yml  <span class="c">2 job paralel, 7 stage</span>
+&#9500;&#9472; .github/workflows/deploy.yml  <span class="c">3 job, 7 stage</span>
 &#9500;&#9472; app/index.html                <span class="c">berisi __BUILD_ID__</span>
 &#9500;&#9472; linux/
 &#9474;  &#9500;&#9472; nginx-demo.conf            <span class="c">port 8080, root ke symlink</span>
 &#9474;  &#9500;&#9472; deploy.sh                  <span class="c">rilis baru, tukar pointer</span>
 &#9474;  &#9500;&#9472; rollback.sh                <span class="c">pointer balik ke previous</span>
 &#9474;  &#9500;&#9472; smoke-test.sh              <span class="c">curl + assert, retry</span>
-&#9474;  &#9492;&#9472; lock-probe.sh              <span class="c">eksperimen unlink</span>
+&#9474;  &#9500;&#9472; lock-probe.sh              <span class="c">eksperimen unlink</span>
+&#9474;  &#9492;&#9472; write-result.sh            <span class="c">metadata hasil run</span>
 &#9500;&#9472; windows/
 &#9474;  &#9500;&#9472; iis-setup.ps1              <span class="c">fitur IIS, app pool, site</span>
+&#9474;  &#9500;&#9472; iis-path.ps1               <span class="c">physicalPath tanpa tebakan</span>
 &#9474;  &#9500;&#9472; deploy.ps1                 <span class="c">rilis baru, tukar pointer</span>
 &#9474;  &#9500;&#9472; rollback.ps1               <span class="c">pointer balik, recycle</span>
 &#9474;  &#9500;&#9472; smoke-test.ps1             <span class="c">Invoke-WebRequest + assert</span>
-&#9474;  &#9492;&#9472; lock-probe.ps1             <span class="c">eksperimen FileShare.None</span>
+&#9474;  &#9500;&#9472; lock-probe.ps1             <span class="c">eksperimen FileShare.None</span>
+&#9474;  &#9492;&#9472; write-result.ps1           <span class="c">metadata hasil run</span>
+&#9500;&#9472; publish/                      <span class="c">perakit halaman hasil</span>
 &#9500;&#9472; docs/index.html               <span class="c">halaman ini, GitHub Pages</span>
+&#9500;&#9472; docs/result/                  <span class="c">halaman hasil, otomatis</span>
 &#9492;&#9472; README.md                     <span class="c">cara reproduce dari nol</span></pre>
     <pre class="tree" data-l="en">devops-workflow-demo/
-&#9500;&#9472; .github/workflows/deploy.yml  <span class="c">2 parallel jobs, 7 stages</span>
+&#9500;&#9472; .github/workflows/deploy.yml  <span class="c">3 jobs, 7 stages</span>
 &#9500;&#9472; app/index.html                <span class="c">holds __BUILD_ID__</span>
 &#9500;&#9472; linux/
 &#9474;  &#9500;&#9472; nginx-demo.conf            <span class="c">port 8080, root to symlink</span>
 &#9474;  &#9500;&#9472; deploy.sh                  <span class="c">new release, swap pointer</span>
 &#9474;  &#9500;&#9472; rollback.sh                <span class="c">pointer back to previous</span>
 &#9474;  &#9500;&#9472; smoke-test.sh              <span class="c">curl + assert, with retry</span>
-&#9474;  &#9492;&#9472; lock-probe.sh              <span class="c">the unlink experiment</span>
+&#9474;  &#9500;&#9472; lock-probe.sh              <span class="c">the unlink experiment</span>
+&#9474;  &#9492;&#9472; write-result.sh            <span class="c">run result metadata</span>
 &#9500;&#9472; windows/
 &#9474;  &#9500;&#9472; iis-setup.ps1              <span class="c">IIS features, pool, site</span>
+&#9474;  &#9500;&#9472; iis-path.ps1               <span class="c">physicalPath, no guessing</span>
 &#9474;  &#9500;&#9472; deploy.ps1                 <span class="c">new release, swap pointer</span>
 &#9474;  &#9500;&#9472; rollback.ps1               <span class="c">pointer back, recycle pool</span>
 &#9474;  &#9500;&#9472; smoke-test.ps1             <span class="c">Invoke-WebRequest + assert</span>
-&#9474;  &#9492;&#9472; lock-probe.ps1             <span class="c">the FileShare.None probe</span>
+&#9474;  &#9500;&#9472; lock-probe.ps1             <span class="c">the FileShare.None probe</span>
+&#9474;  &#9492;&#9472; write-result.ps1           <span class="c">run result metadata</span>
+&#9500;&#9472; publish/                      <span class="c">builds the result pages</span>
 &#9500;&#9472; docs/index.html               <span class="c">this page, GitHub Pages</span>
+&#9500;&#9472; docs/result/                  <span class="c">result pages, generated</span>
 &#9492;&#9472; README.md                     <span class="c">how to reproduce from zero</span></pre>
 
     <pre class="run" data-l="id">gh repo fork enggarranu/devops-workflow-demo --clone
@@ -1584,7 +1609,23 @@ git push</pre>
     <div class="links">
       <a class="link" href="https://github.com/enggarranu/devops-workflow-demo">repo &#8599;</a>
       <a class="link" href="https://github.com/enggarranu/devops-workflow-demo/actions/workflows/deploy.yml"><span data-l="id">tab Actions &#8599;</span><span data-l="en">Actions tab &#8599;</span></a>
+      <a class="link link-lin" href="result/linux/"><span class="mark mark-lin" aria-hidden="true"></span><span data-l="id">hasil run: Linux &#8594;</span><span data-l="en">run result: Linux &#8594;</span></a>
+      <a class="link link-win" href="result/windows/"><span class="mark mark-win" aria-hidden="true"></span><span data-l="id">hasil run: Windows &#8594;</span><span data-l="en">run result: Windows &#8594;</span></a>
     </div>
+
+    <p class="note" data-l="id">
+      Dua halaman hasil itu ditulis ulang oleh pipeline tiap kali run selesai, jadi
+      isinya selalu run yang terakhir: build id, commit, metode deploy, hasil smoke
+      test, dan ke build mana rollback diuji. Keduanya dilayani GitHub Pages, bukan
+      nginx atau IIS; runner yang mengerjakannya sudah dihancurkan begitu job selesai.
+    </p>
+    <p class="note" data-l="en">
+      Those two result pages are rewritten by the pipeline every time a run finishes, so
+      they always show the latest one: build id, commit, deploy method, smoke test
+      results, and which build the rollback was tested against. Both are served by
+      GitHub Pages, not by nginx or IIS; the runners that did the work were destroyed
+      the moment their jobs finished.
+    </p>
 
     <p class="note" data-l="id">
       Sisi Windows di repo ini saya pelajari untuk demo ini, bukan dari produksi.

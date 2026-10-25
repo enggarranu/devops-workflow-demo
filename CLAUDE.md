@@ -8,13 +8,16 @@ di-host di GitHub Pages.
 ## Struktur
 
 ```
-.github/workflows/deploy.yml   dua job paralel, ubuntu-latest + windows-latest
+.github/workflows/deploy.yml   tiga job: linux, windows, publish
 app/index.html                 aplikasi yang dideploy, static HTML
 linux/                         nginx-demo.conf, deploy.sh, rollback.sh,
-                               smoke-test.sh, lock-probe.sh
-windows/                       iis-setup.ps1, deploy.ps1, rollback.ps1,
-                               smoke-test.ps1, lock-probe.ps1
+                               smoke-test.sh, lock-probe.sh, write-result.sh
+windows/                       iis-setup.ps1, iis-path.ps1, deploy.ps1,
+                               rollback.ps1, smoke-test.ps1, lock-probe.ps1,
+                               write-result.ps1
+publish/                       template.html, render.py, push-result.sh
 docs/index.html                website, dilayani GitHub Pages dari folder docs/
+docs/result/                   halaman hasil per jalur, DIBUAT OTOMATIS
 README.md                      cara reproduce dari nol
 ```
 
@@ -26,6 +29,14 @@ README.md                      cara reproduce dari nol
   tanpa koneksi internet.
 - Diagram dan animasi pakai SVG dan CSS saja, tanpa library animasi.
 - Tidak ada server di luar GitHub runner. Semua deployment terjadi di dalam job CI.
+- `docs/result/` dibuat otomatis oleh job `publish`. Jangan diedit langsung: perubahan
+  di sana akan tertimpa pada run berikutnya. Yang diedit `publish/template.html` dan
+  `publish/render.py`.
+- Halaman di `docs/result/` dilayani GitHub Pages, bukan nginx dan bukan IIS. Jangan
+  menulis satu kata pun di situ yang menyiratkan sebaliknya: response header-nya dari
+  GitHub, jadi klaim seperti itu langsung ketahuan. Yang benar: artifact-nya dibangun,
+  dideploy, dan diverifikasi di runner pada run tertentu, lalu hasilnya dipublish ke
+  sana sebagai bukti, dan runner-nya sudah dihancurkan setelah job selesai.
 
 ## Alur pipeline
 
@@ -42,6 +53,15 @@ akan menyembunyikan perbedaan yang justru mau ditunjukkan.
 | 5. Smoke test | `curl -f` | `Invoke-WebRequest -UseBasicParsing` |
 | 6. Rollback | symlink balik ke release sebelumnya | `physicalPath` balik, recycle app pool |
 | 7. Lock probe | `rm` file yang fd-nya dipegang | tulis ke handle `FileShare.None` |
+
+Setelah kedua job selesai, job `publish` mengunduh metadata JSON dari keduanya, merakit
+`docs/result/linux/index.html` dan `docs/result/windows/index.html`, lalu commit dan
+push. Dua job deploy sengaja tidak menulis ke repo: keduanya paralel, dan dua push ke
+branch yang sama akan bentrok. Commit-nya diakhiri `[skip ci]` supaya tidak memicu
+workflow ini lagi dan jadi loop.
+
+Build id dan versi diambil dari `github.run_number`, bukan dari counter manual atau file
+state di repo: `run_number` naik sendiri dan tidak pernah turun.
 
 Perbedaan yang jadi inti demo: file yang sedang dipakai bisa ditimpa di Linux tapi
 terkunci di Windows, sehingga rollback di Windows butuh langkah lebih panjang.
