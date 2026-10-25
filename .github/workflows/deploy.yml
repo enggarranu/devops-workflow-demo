@@ -250,6 +250,10 @@ jobs:
           # pembacaan yang sama rusaknya seperti di script-script lain.
           $active = try { Get-SitePhysicalPath -SiteName $env:SITE_NAME } catch { "? ($($_.Exception.Message))" }
 
+          # Dicetak ke log juga, bukan cuma ke step summary. Step summary tidak bisa
+          # dibaca lewat API, jadi tanpa baris ini nilainya cuma bisa dicek dengan mata.
+          Write-Host "    aktif setelah rollback: $active"
+
           $lines = @()
           $lines += '## Windows - IIS di windows-latest'
           $lines += ''

@@ -608,8 +608,8 @@ footer { padding-block: 48px 72px; border-top: 1px solid var(--line); }
                   <rect class="d-box d-box-win" rx="1" x="596" y="274" width="404" height="70"/>
                   <text class="d-cmd d-cmd-win" x="616" y="302" data-l="id">DISM: nyalakan fitur IIS</text>
                   <text class="d-cmd d-cmd-win" x="616" y="302" data-l="en">DISM: enable IIS features</text>
-                  <text class="d-sub" x="616" y="326" data-l="id">3 dari 7 fitur menyala, ~27 detik</text>
-                  <text class="d-sub" x="616" y="326" data-l="en">3 of 7 features enabled, ~27s</text>
+                  <text class="d-sub" x="616" y="326" data-l="id">3 dari 7 fitur, ~setengah menit</text>
+                  <text class="d-sub" x="616" y="326" data-l="en">3 of 7 features, ~half a minute</text>
                   <path class="d-flow-win" d="M 798 344 L 798 372" marker-end="url(#ar-win)"/>
                 </g>
               </g>
@@ -864,14 +864,14 @@ jobs:
             Beda biaya yang nyata, walau tidak sebesar yang biasa diduga. nginx tidak ada
             di image dan harus dipasang. IIS sebagian sudah ada: di run terakhir, 4 dari 7
             fitur sudah menyala dan hanya 3 yang perlu dinyalakan sebagai Windows optional
-            feature. Tetap jadi langkah terlama di job Windows, tapi sekitar 27 detik, bukan
-            hitungan menit.
+            feature. Tetap jadi langkah terlama di job Windows, tapi hitungannya detik, bukan
+            menit.
           </p>
           <p class="s-why" data-l="en">
             A real difference in cost, though smaller than usually assumed. nginx is absent
             from the image and must be installed. IIS is partly there already: on the last
             run, 4 of its 7 features were enabled and only 3 had to be turned on as Windows
-            optional features. Still the longest step in the Windows job, but around 27
+            optional features. Still the longest step in the Windows job, but measured in
             seconds, not minutes.
           </p>
           <div class="pair">
@@ -1272,20 +1272,19 @@ $stream = [System.IO.File]::Open($held,
           </div>
           <p class="note" data-l="id">
             Eksperimen di atas diassert: kalau hasilnya tidak sesuai, job-nya merah.
-            Eksperimen satunya tidak &mdash; menimpa <code>index.html</code> yang sedang
-            dilayani IIS justru <em>biasanya berhasil</em>, karena IIS tidak memegang
-            handle eksklusif atas file static. Apakah response berikutnya langsung berubah
-            atau tidak, itu dilaporkan apa adanya ke step summary tanpa ditebak sebabnya.
-            Halaman ini tidak menyebut penyebabnya sampai ada bukti yang menunjuk ke satu
-            sebab tertentu.
+            Eksperimen satunya tidak, dan hasilnya justru yang paling menarik: menimpa
+            <code>index.html</code> yang sedang dilayani IIS <em>berhasil</em>, dan request
+            berikutnya langsung menampilkan isi baru &mdash; persis seperti nginx. Untuk
+            konten static, dua sistem operasi ini berperilaku sama. Lock-nya baru muncul di
+            eksperimen B, yaitu di level primitif sistem operasi, bukan di jalur IIS.
           </p>
           <p class="note" data-l="en">
             The experiment above is asserted: if the result differs, the job goes red. The
-            other experiment is not &mdash; overwriting the <code>index.html</code> that
-            IIS is currently serving <em>usually succeeds</em>, because IIS holds no
-            exclusive handle on static files. Whether the next response changes immediately
-            is reported as observed into the step summary, with no cause attached. This
-            page does not name a cause until there is evidence pointing at one.
+            other one is not, and its result is the more interesting half: overwriting the
+            <code>index.html</code> IIS is serving <em>succeeds</em>, and the very next
+            request shows the new content &mdash; exactly like nginx. For static content
+            the two operating systems behave the same. The lock only appears in experiment
+            B, at the OS primitive level, not on the IIS path.
           </p>
         </div>
       </details>
@@ -1334,8 +1333,8 @@ $stream = [System.IO.File]::Open($held,
             </td>
             <td class="cell-win">
               Enable-WindowsOptionalFeature
-              <span class="cell-cost" data-l="id">~27 detik, 3 dari 7 fitur perlu dinyalakan</span>
-              <span class="cell-cost" data-l="en">~27s, 3 of 7 features need enabling</span>
+              <span class="cell-cost" data-l="id">~setengah menit, 3 dari 7 fitur perlu dinyalakan</span>
+              <span class="cell-cost" data-l="en">~half a minute, 3 of 7 features need enabling</span>
             </td>
           </tr>
           <tr>
@@ -1573,13 +1572,13 @@ git push</pre>
 
     <p data-l="id">
       Tidak ada secret, variable, atau self-hosted runner yang perlu disiapkan. Dua job
-      jalan paralel dan dua-duanya selesai di bawah semenit: Linux sekitar 22 detik,
-      Windows sekitar 63 detik karena masih harus menyalakan sebagian fitur IIS.
+      jalan paralel: Linux selesai di bawah setengah menit, Windows sekitar satu menit
+      karena masih harus menyalakan sebagian fitur IIS.
     </p>
     <p data-l="en">
       No secrets, variables, or self-hosted runners to set up. Two jobs run in parallel
-      and both finish in under a minute: Linux in about 22 seconds, Windows in about 63
-      because it still has to enable part of IIS first.
+      Linux finishes in under half a minute, Windows in about a minute because it still
+      has to enable part of IIS first.
     </p>
 
     <div class="links">
